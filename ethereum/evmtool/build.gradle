@@ -19,7 +19,7 @@ apply plugin: 'application'
 apply plugin: 'idea'
 
 jar {
-  archiveBaseName = 'besu-evmtool'
+  archiveBaseName = 'sur-evmtool'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

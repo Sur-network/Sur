@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-util-test'
+  archiveBaseName = 'sur-util-test'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

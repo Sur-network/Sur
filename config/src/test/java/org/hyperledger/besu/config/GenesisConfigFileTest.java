@@ -45,13 +45,12 @@ public class GenesisConfigFileTest {
   public void shouldLoadMainnetConfigFile() {
     final GenesisConfigFile config = GenesisConfigFile.mainnet();
     // Sanity check some basic properties to confirm this is the mainnet file.
-    assertThat(config.getConfigOptions().isEthHash()).isTrue();
+    assertThat(config.getConfigOptions().isIbft2()).isTrue();
     assertThat(config.getConfigOptions().getChainId()).hasValue(MAINNET_CHAIN_ID);
     assertThat(config.streamAllocations().map(GenesisAllocation::getAddress))
         .contains(
-            "000d836201318ec6899a67540690382780743280",
-            "001762430ea9c3a26e5749afdb70da5f78ddbb8c",
-            "001d14804b399c6ef80e64576f657660804fec0b");
+            "0x0000000000000000000000000000000000007777",
+            "0x0000000000000000000000000000000000008888");
   }
 
   @Test

@@ -22,6 +22,10 @@ import org.hyperledger.besu.ethereum.core.fees.TransactionPriceCalculator;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransactionValidator;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
@@ -84,6 +88,21 @@ public class ProtocolScheduleBuilder {
     this.privacyParameters = privacyParameters;
     this.isRevertReasonEnabled = isRevertReasonEnabled;
     this.quorumCompatibilityMode = quorumCompatibilityMode;
+  }
+
+  public MutableProtocolSchedule createProtocolSchedule(
+      final Map<BigInteger, ProtocolSpecBuilder> specBuilderMap) {
+    final Optional<BigInteger> chainId = config.getChainId().or(() -> defaultChainId);
+    final MutableProtocolSchedule protocolSchedule = new MutableProtocolSchedule(chainId);
+    List<BigInteger> steps = new ArrayList<>(specBuilderMap.keySet());
+    Collections.sort(steps);
+    for (BigInteger blockNumber : steps) {
+      addProtocolSpec(
+          protocolSchedule,
+          OptionalLong.of(blockNumber.longValue()),
+          specBuilderMap.get(blockNumber));
+    }
+    return protocolSchedule;
   }
 
   public ProtocolSchedule createProtocolSchedule() {

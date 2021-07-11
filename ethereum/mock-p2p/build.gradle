@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-mock-p2p'
+  archiveBaseName = 'sur-mock-p2p'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

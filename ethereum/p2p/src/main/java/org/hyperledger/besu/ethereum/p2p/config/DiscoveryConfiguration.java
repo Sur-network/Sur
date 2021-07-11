@@ -30,6 +30,14 @@ public class DiscoveryConfiguration {
   public static List<EnodeURL> MAINNET_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
+                   //"enode://e63e469d4219e993f84837b117df3950e7d8a6bbe51fc99dd9d0ee04563f66efc61d480f8f4433c96f7bdc137d8e9f2263bffabdd4ccb36fc745fe9c569e5b24@127.0.0.1:30303"
+                  "enode://907811bc010778115a774973cabdd8f1cc0f9db25dbb12f0ef51cb20fa771a44659c401d6a107f3b0f6b388cdf4b5d05bfaf979f3454767db7195e9913e0edb1@185.236.37.253:30303"
+          )
+              .map(EnodeURL::fromString)
+              .collect(toList()));
+  public static List<EnodeURL> ETH_MAINNET_BOOTSTRAP_NODES =
+      Collections.unmodifiableList(
+          Stream.of(
                   // Ethereum Foundation Bootnodes
                   "enode://d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666@18.138.108.67:30303", // Singapore AWS
                   "enode://22a8232c3abc76a16ae9d6c3b164f98775fe226f0917b0ca871128a74a8e9630b458460865bab457221f1d448dd9791d24c4e5d88786180ac185df813a68d4de@3.209.45.79:30303", // Virginia AWS

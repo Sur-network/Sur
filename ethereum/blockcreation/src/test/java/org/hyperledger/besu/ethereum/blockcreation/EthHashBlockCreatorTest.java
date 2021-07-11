@@ -48,8 +48,10 @@ import java.util.function.Function;
 
 import com.google.common.collect.Lists;
 import org.apache.tuweni.bytes.Bytes;
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class EthHashBlockCreatorTest {
 
   private final Address BLOCK_1_COINBASE =

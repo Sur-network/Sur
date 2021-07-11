@@ -560,7 +560,7 @@ public class BlockTransactionSelectorTest {
         .to(Address.ID)
         .value(Wei.of(transactionNumber))
         .sender(Address.ID)
-        .chainId(BigInteger.ONE)
+        .chainId(BigInteger.valueOf(1))
         .signAndBuild(keyPair);
   }
 

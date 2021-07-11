@@ -93,7 +93,7 @@ public class PrivateTransactionValidatorTest {
 
   @Test
   public void transactionWithInvalidChainIdShouldReturnWrongChainId() {
-    validator = new PrivateTransactionValidator(Optional.of(BigInteger.ONE));
+    validator = new PrivateTransactionValidator(Optional.of(BigInteger.valueOf(1)));
 
     final ValidationResult<TransactionInvalidReason> validationResult =
         validator.validate(privateTransactionWithChainId(999), 0L, false);
@@ -127,7 +127,7 @@ public class PrivateTransactionValidatorTest {
 
   @Test
   public void transactionWithNonZeroValueShouldReturnValueNotZeroError() {
-    validator = new PrivateTransactionValidator(Optional.of(BigInteger.ONE));
+    validator = new PrivateTransactionValidator(Optional.of(BigInteger.valueOf(1)));
 
     final ValidationResult<TransactionInvalidReason> validationResult =
         validator.validate(privateTransactionWithValue(1L), 0L, false);
@@ -138,7 +138,7 @@ public class PrivateTransactionValidatorTest {
   @Test
   public void
       transactionWithUnrestrictedTransactionTypeShouldReturnUnimplementedTransactionTypeError() {
-    validator = new PrivateTransactionValidator(Optional.of(BigInteger.ONE));
+    validator = new PrivateTransactionValidator(Optional.of(BigInteger.valueOf(1)));
 
     final ValidationResult<TransactionInvalidReason> validationResult =
         validator.validate(privateTransactionWithRestriction(Restriction.UNRESTRICTED), 0L, false);
@@ -150,7 +150,7 @@ public class PrivateTransactionValidatorTest {
   @Test
   public void
       transactionWithUnsupportedTransactionTypeShouldReturnUnimplementedTransactionTypeError() {
-    validator = new PrivateTransactionValidator(Optional.of(BigInteger.ONE));
+    validator = new PrivateTransactionValidator(Optional.of(BigInteger.valueOf(1)));
 
     final ValidationResult<TransactionInvalidReason> validationResult =
         validator.validate(privateTransactionWithRestriction(Restriction.UNSUPPORTED), 0L, false);

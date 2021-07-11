@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-p2p'
+  archiveBaseName = 'sur-p2p'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

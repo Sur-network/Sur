@@ -26,7 +26,7 @@ import java.util.function.Function;
 /** Provides {@link ProtocolSpec} lookups for mainnet hard forks. */
 public class MainnetProtocolSchedule {
 
-  public static final BigInteger DEFAULT_CHAIN_ID = BigInteger.ONE;
+  public static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(1);
 
   public static ProtocolSchedule create() {
     return fromConfig(

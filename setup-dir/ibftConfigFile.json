@@ -1,4 +1,5 @@
 {
+ "genesis": {
   "config" : {
     "chainId" : 262,
     "constantinoplefixblock" : 0,
@@ -44,4 +45,12 @@
     }
   },
   "extraData" : "0xf83ea00000000000000000000000000000000000000000000000000000000000000000d594032c0beec74a06cf6fd677bfa45d846340261095808400000000c0"
+}
+,
+ "blockchain": {
+   "nodes": {
+     "generate": true,
+       "count": 1
+   }
+ }
 }

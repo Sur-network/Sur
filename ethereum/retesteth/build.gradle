@@ -14,7 +14,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-retesteth'
+  archiveBaseName = 'sur-retesteth'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

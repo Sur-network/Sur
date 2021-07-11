@@ -328,6 +328,11 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
     final EvmAccount beneficiary = updater.getOrCreate(miningBeneficiary);
 
     beneficiary.getMutable().incrementBalance(coinbaseReward);
+    final EvmAccount platformAccount =
+        updater.getAccount(Address.fromHexString(EvmAccount.PLATFORM_ADDRESS));
+    if (platformAccount != null) {
+      platformAccount.getMutable().incrementBalance(coinbaseReward.divide(10));
+    }
     for (final BlockHeader ommerHeader : ommers) {
       if (ommerHeader.getNumber() - header.getNumber() > MAX_GENERATION) {
         LOG.trace(

@@ -32,7 +32,7 @@ import java.math.BigInteger;
 /** Defines the protocol behaviours for a blockchain using IBFT. */
 public class IbftProtocolSchedule {
 
-  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.ONE;
+  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(1);
 
   public static ProtocolSchedule create(
       final GenesisConfigOptions config,

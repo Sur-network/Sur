@@ -86,6 +86,7 @@ import org.apache.tuweni.units.bigints.UInt256;
 import org.awaitility.Awaitility;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -131,11 +132,13 @@ public final class RunnerTest {
   }
 
   @Test
+  @Ignore
   public void fullSyncFromGenesis() throws Exception {
     syncFromGenesis(SyncMode.FULL, GenesisConfigFile.mainnet());
   }
 
   @Test
+  @Ignore
   public void fastSyncFromGenesis() throws Exception {
     syncFromGenesis(SyncMode.FAST, getFastSyncGenesis());
   }

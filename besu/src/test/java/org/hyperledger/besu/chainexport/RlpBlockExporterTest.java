@@ -47,10 +47,12 @@ import java.util.Optional;
 
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 /** Tests for {@link BlockExporter}. */
+@Ignore
 public final class RlpBlockExporterTest {
 
   @ClassRule public static final TemporaryFolder folder = new TemporaryFolder();

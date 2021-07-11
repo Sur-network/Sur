@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-crypto'
+  archiveBaseName = 'sur-crypto'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

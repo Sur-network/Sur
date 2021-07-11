@@ -60,6 +60,7 @@ public class PrivacyTest {
   private static final long CACHE_CAPACITY = 8388608;
   private static final int MAX_BACKGROUND_COMPACTIONS = 4;
   private static final int BACKGROUND_THREAD_COUNT = 4;
+  private static final BigInteger CHAINID = BigInteger.valueOf(1);
   private final Vertx vertx = Vertx.vertx();
 
   @Rule public final TemporaryFolder folder = new TemporaryFolder();
@@ -106,7 +107,7 @@ public class PrivacyTest {
         .synchronizerConfiguration(SynchronizerConfiguration.builder().build())
         .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
         .storageProvider(new InMemoryStorageProvider())
-        .networkId(BigInteger.ONE)
+        .networkId(CHAINID)
         .miningParameters(new MiningParametersTestBuilder().enabled(false).build())
         .nodeKey(NodeKeyUtils.generate())
         .metricsSystem(new NoOpMetricsSystem())

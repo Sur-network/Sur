@@ -16,11 +16,13 @@ package org.hyperledger.besu.ethereum.api.jsonrpc;
 
 import java.net.URL;
 
+import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
+@Ignore
 public class EthJsonRpcHttpBySpecTest extends AbstractJsonRpcHttpBySpecTest {
 
   public EthJsonRpcHttpBySpecTest(final String specName, final URL specURL) {

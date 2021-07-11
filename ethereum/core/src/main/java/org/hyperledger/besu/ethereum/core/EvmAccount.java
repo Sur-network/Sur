@@ -15,5 +15,7 @@
 package org.hyperledger.besu.ethereum.core;
 
 public interface EvmAccount extends Account {
-  public MutableAccount getMutable() throws ModificationNotAllowedException;
+  String PLATFORM_ADDRESS = "0x0000000000000000000000000000000000008888";
+
+  MutableAccount getMutable() throws ModificationNotAllowedException;
 }

@@ -38,7 +38,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.io.Resources;
 
 public class EthNetworkConfig {
-  public static final BigInteger MAINNET_NETWORK_ID = BigInteger.valueOf(1);
+  public static final BigInteger MAINNET_NETWORK_ID = BigInteger.valueOf(262);
   public static final BigInteger ROPSTEN_NETWORK_ID = BigInteger.valueOf(3);
   public static final BigInteger RINKEBY_NETWORK_ID = BigInteger.valueOf(4);
   public static final BigInteger GOERLI_NETWORK_ID = BigInteger.valueOf(5);

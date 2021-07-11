@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu'
+  archiveBaseName = 'sur'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

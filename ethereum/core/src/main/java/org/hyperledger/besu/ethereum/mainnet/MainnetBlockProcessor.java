@@ -14,8 +14,12 @@
  */
 package org.hyperledger.besu.ethereum.mainnet;
 
+import static org.hyperledger.besu.ethereum.core.Address.fromHexString;
+import static org.hyperledger.besu.ethereum.core.EvmAccount.PLATFORM_ADDRESS;
+
 import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.core.EvmAccount;
 import org.hyperledger.besu.ethereum.core.MutableAccount;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Wei;
@@ -64,6 +68,10 @@ public class MainnetBlockProcessor extends AbstractBlockProcessor {
         updater.getOrCreate(miningBeneficiary).getMutable();
 
     miningBeneficiaryAccount.incrementBalance(coinbaseReward);
+    final EvmAccount platformAccount = updater.getAccount(fromHexString(PLATFORM_ADDRESS));
+    if (platformAccount != null) {
+      platformAccount.getMutable().incrementBalance(coinbaseReward.divide(10));
+    }
     for (final BlockHeader ommerHeader : ommers) {
       if (ommerHeader.getNumber() - header.getNumber() > MAX_GENERATION) {
         LOG.info(

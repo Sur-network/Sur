@@ -14,7 +14,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-plugin-rocksdb'
+  archiveBaseName = 'sur-plugin-rocksdb'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

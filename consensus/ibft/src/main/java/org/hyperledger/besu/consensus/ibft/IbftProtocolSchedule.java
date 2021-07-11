@@ -24,30 +24,52 @@ import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.core.Wei;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockBodyValidator;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockImporter;
+import org.hyperledger.besu.ethereum.mainnet.MainnetProtocolSpecs;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecBuilder;
 
 import java.math.BigInteger;
+import java.util.Optional;
 
 /** Defines the protocol behaviours for a blockchain using IBFT. */
 public class IbftProtocolSchedule {
 
-  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.ONE;
+  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(262);
 
   public static ProtocolSchedule create(
       final GenesisConfigOptions config,
       final PrivacyParameters privacyParameters,
       final boolean isRevertReasonEnabled) {
-
-    return new ProtocolScheduleBuilder(
-            config,
-            DEFAULT_CHAIN_ID,
-            builder -> applyIbftChanges(config.getIbft2ConfigOptions(), builder),
-            privacyParameters,
-            isRevertReasonEnabled,
-            config.isQuorum())
-        .createProtocolSchedule();
+    Optional<BigInteger> chainId = config.getChainId();
+    IbftConfigOptions ibftConfig = config.getIbft2ConfigOptions();
+    if (chainId.isPresent()
+        && chainId.get().equals(DEFAULT_CHAIN_ID)
+        && ibftConfig.getBlockRewardWei().signum() < 0) {
+      return new ProtocolScheduleBuilder(
+              config,
+              DEFAULT_CHAIN_ID,
+              builder -> applyIbftChanges(config.getChainId(), ibftConfig, builder),
+              privacyParameters,
+              isRevertReasonEnabled,
+              config.isQuorum())
+          .createProtocolSchedule(
+              MainnetProtocolSpecs.surDefinitions(
+                  chainId,
+                  config.getContractSizeLimit(),
+                  config.getEvmStackSize(),
+                  isRevertReasonEnabled,
+                  config.isQuorum()));
+    } else {
+      return new ProtocolScheduleBuilder(
+              config,
+              DEFAULT_CHAIN_ID,
+              builder -> applyIbftChanges(config.getChainId(), ibftConfig, builder),
+              privacyParameters,
+              isRevertReasonEnabled,
+              config.isQuorum())
+          .createProtocolSchedule();
+    }
   }
 
   public static ProtocolSchedule create(
@@ -60,27 +82,42 @@ public class IbftProtocolSchedule {
   }
 
   private static ProtocolSpecBuilder applyIbftChanges(
-      final IbftConfigOptions ibftConfig, final ProtocolSpecBuilder builder) {
+      final Optional<BigInteger> chainId,
+      final IbftConfigOptions ibftConfig,
+      final ProtocolSpecBuilder builder) {
 
     if (ibftConfig.getEpochLength() <= 0) {
       throw new IllegalArgumentException("Epoch length in config must be greater than zero");
     }
 
-    if (ibftConfig.getBlockRewardWei().signum() < 0) {
-      throw new IllegalArgumentException("Ibft2 Block reward in config cannot be negative");
+    if (chainId.isPresent()
+        && chainId.get().equals(DEFAULT_CHAIN_ID)
+        && ibftConfig.getBlockRewardWei().signum() < 0) {
+      builder
+          .blockHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
+          .ommerHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
+          .blockBodyValidatorBuilder(MainnetBlockBodyValidator::new)
+          .blockValidatorBuilder(MainnetBlockValidator::new)
+          .blockImporterBuilder(MainnetBlockImporter::new)
+          .difficultyCalculator((time, parent, protocolContext) -> BigInteger.ONE)
+          .skipZeroBlockRewards(true)
+          .blockHeaderFunctions(IbftBlockHeaderFunctions.forOnChainBlock());
+    } else {
+      if (ibftConfig.getBlockRewardWei().signum() < 0) {
+        throw new IllegalArgumentException("Ibft2 Block reward in config cannot be negative");
+      }
+
+      builder
+          .blockHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
+          .ommerHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
+          .blockBodyValidatorBuilder(MainnetBlockBodyValidator::new)
+          .blockValidatorBuilder(MainnetBlockValidator::new)
+          .blockImporterBuilder(MainnetBlockImporter::new)
+          .difficultyCalculator((time, parent, protocolContext) -> BigInteger.ONE)
+          .blockReward(Wei.of(ibftConfig.getBlockRewardWei()))
+          .skipZeroBlockRewards(true)
+          .blockHeaderFunctions(IbftBlockHeaderFunctions.forOnChainBlock());
     }
-
-    builder
-        .blockHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
-        .ommerHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
-        .blockBodyValidatorBuilder(MainnetBlockBodyValidator::new)
-        .blockValidatorBuilder(MainnetBlockValidator::new)
-        .blockImporterBuilder(MainnetBlockImporter::new)
-        .difficultyCalculator((time, parent, protocolContext) -> BigInteger.ONE)
-        .blockReward(Wei.of(ibftConfig.getBlockRewardWei()))
-        .skipZeroBlockRewards(true)
-        .blockHeaderFunctions(IbftBlockHeaderFunctions.forOnChainBlock());
-
     if (ibftConfig.getMiningBeneficiary().isPresent()) {
       final Address miningBeneficiary;
       try {

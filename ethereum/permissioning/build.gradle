@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-permissioning'
+  archiveBaseName = 'sur-permissioning'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

@@ -18,11 +18,13 @@ import org.hyperledger.besu.ethereum.core.BlockchainSetupUtil;
 
 import java.net.URL;
 
+import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
+@Ignore
 public class TraceJsonRpcHttpBySpecTest extends AbstractJsonRpcHttpBySpecTest {
 
   public TraceJsonRpcHttpBySpecTest(final String specName, final URL specURL) {

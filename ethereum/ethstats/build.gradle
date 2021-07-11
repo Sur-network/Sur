@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'besu-ethereum-ethstats'
+  archiveBaseName = 'sur-ethereum-ethstats'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

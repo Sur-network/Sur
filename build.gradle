@@ -492,7 +492,7 @@ run {
     applicationDefaultJvmArgs.add(0, "-Dotel.resource.attributes=service.name=besu-dev")
     applicationDefaultJvmArgs.add(0, "-javaagent:"+ configurations.javaAgent.singleFile.toPath() + "")
     applicationDefaultJvmArgs = applicationDefaultJvmArgs.collect {
-      it.replace('BESU_HOME', "$buildDir/besu")
+      it.replace('BESU_HOME', "$buildDir/sur")
     }
   }
 }
@@ -574,7 +574,7 @@ def dockerVariants = [
 tasks.register("dockerDistUntar") {
   dependsOn distTar
   dependsOn distZip
-  def dockerBuildDir = "build/docker-besu/"
+  def dockerBuildDir = "build/docker-sur/"
   def distTarFile = distTar.outputs.files.singleFile
   def distTarFileName = distTar.outputs.files.singleFile.name.replace(".tar.gz", "")
 
@@ -584,16 +584,16 @@ tasks.register("dockerDistUntar") {
       from tarTree(distTarFile)
       into(dockerBuildDir)
     }
-    file("${dockerBuildDir}/${distTarFileName}").renameTo("${dockerBuildDir}/besu")
+    file("${dockerBuildDir}/${distTarFileName}").renameTo("${dockerBuildDir}/sur")
   }
 }
 
 task distDocker {
   dependsOn dockerDistUntar
-  inputs.dir("build/docker-besu/")
+  inputs.dir("build/docker-sur/")
   def dockerBuildVersion = project.hasProperty('release.releaseVersion') ? project.property('release.releaseVersion') : "${rootProject.version}"
-  def dockerBuildDir = "build/docker-besu/"
-  def imageName = "hyperledger/besu"
+  def dockerBuildDir = "build/docker-sur/"
+  def imageName = "surnetdev/sur"
 
   doLast {
     for (def variant in dockerVariants) {
@@ -605,7 +605,7 @@ task distDocker {
         def image = "${imageName}:${dockerBuildVersion}-${variant}"
         executable "sh"
         workingDir dockerBuildDir
-        args "-c", "docker build --build-arg BUILD_DATE=${buildTime()} --build-arg VERSION=${dockerBuildVersion} --build-arg VCS_REF=${getCheckedOutGitCommitHash()} -t ${image} ."
+        args "-c", "docker build --build-arg BUILD_DATE=${buildTime()} --build-arg VERSION=${dockerBuildVersion} -t ${image} ."
       }
     }
     // tag the "default" (which is the variant in the zero position)
@@ -627,7 +627,7 @@ task testDocker {
   doLast {
     for (def variant in dockerVariants) {
       exec {
-        def image = project.hasProperty('release.releaseVersion') ? "hyperledger/besu:" + project.property('release.releaseVersion') : "hyperledger/besu:${project.version}"
+        def image = project.hasProperty('release.releaseVersion') ? "surnetdev/sur:" + project.property('release.releaseVersion') : "surnetdev/sur:${project.version}"
         workingDir "docker/${variant}"
         executable "sh"
         args "-c", "bash ../test.sh ${image}-${variant}"
@@ -639,8 +639,8 @@ task testDocker {
 task dockerUpload {
   dependsOn distDocker
   def dockerBuildVersion = project.hasProperty('release.releaseVersion') ? project.property('release.releaseVersion') : "${rootProject.version}"
-  def imageName = "hyperledger/besu"
-  def azureImageName = "hyperledger.azurecr.io/besu"
+  def imageName = "surnetdev/sur"
+  def azureImageName = "surnetdev/sur"
   def image = "${imageName}:${dockerBuildVersion}"
   def additionalTags = []
 
@@ -738,7 +738,9 @@ def buildTime() {
 def calculateVersion() {
   String version = rootProject.version
   if (version.endsWith("-SNAPSHOT")) {
-    version = version.replace("-SNAPSHOT", "-dev-" + getCheckedOutGitCommitHash())
+    def df = new SimpleDateFormat("yyyy-MM-dd")
+    df.setTimeZone(TimeZone.getTimeZone("UTC"))
+    version = version.replace("-SNAPSHOT", "-dev" + df.format(new Date()) /*+ getCheckedOutGitCommitHash()*/)
   }
   return version
 }
