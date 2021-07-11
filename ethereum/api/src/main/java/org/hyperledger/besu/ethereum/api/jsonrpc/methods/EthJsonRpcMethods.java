@@ -23,6 +23,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthCall;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthChainId;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthCoinbase;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthEstimateGas;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthFeeHistory;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthGasPrice;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthGetBalance;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.EthGetBlockByHash;
@@ -63,6 +64,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.BlockResultFactory;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
+import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.core.Synchronizer;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
@@ -70,6 +72,7 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
@@ -83,6 +86,7 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
   private final TransactionPool transactionPool;
   private final MiningCoordinator miningCoordinator;
   private final Set<Capability> supportedCapabilities;
+  private final PrivacyParameters privacyParameters;
 
   public EthJsonRpcMethods(
       final BlockchainQueries blockchainQueries,
@@ -91,7 +95,8 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
       final FilterManager filterManager,
       final TransactionPool transactionPool,
       final MiningCoordinator miningCoordinator,
-      final Set<Capability> supportedCapabilities) {
+      final Set<Capability> supportedCapabilities,
+      final PrivacyParameters privacyParameters) {
     this.blockchainQueries = blockchainQueries;
     this.synchronizer = synchronizer;
     this.protocolSchedule = protocolSchedule;
@@ -99,6 +104,7 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
     this.transactionPool = transactionPool;
     this.miningCoordinator = miningCoordinator;
     this.supportedCapabilities = supportedCapabilities;
+    this.privacyParameters = privacyParameters;
   }
 
   @Override
@@ -113,7 +119,7 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
         new EthBlockNumber(blockchainQueries),
         new EthGetBalance(blockchainQueries),
         new EthGetBlockByHash(blockchainQueries, blockResult),
-        new EthGetBlockByNumber(blockchainQueries, blockResult),
+        new EthGetBlockByNumber(blockchainQueries, blockResult, synchronizer),
         new EthGetBlockTransactionCountByNumber(blockchainQueries),
         new EthGetBlockTransactionCountByHash(blockchainQueries),
         new EthCall(
@@ -121,8 +127,10 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
             new TransactionSimulator(
                 blockchainQueries.getBlockchain(),
                 blockchainQueries.getWorldStateArchive(),
-                protocolSchedule)),
-        new EthGetCode(blockchainQueries),
+                protocolSchedule,
+                privacyParameters)),
+        new EthFeeHistory(protocolSchedule, blockchainQueries.getBlockchain()),
+        new EthGetCode(blockchainQueries, Optional.of(privacyParameters)),
         new EthGetLogs(blockchainQueries),
         new EthGetProof(blockchainQueries),
         new EthGetUncleCountByBlockHash(blockchainQueries),
@@ -149,7 +157,8 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
             new TransactionSimulator(
                 blockchainQueries.getBlockchain(),
                 blockchainQueries.getWorldStateArchive(),
-                protocolSchedule)),
+                protocolSchedule,
+                privacyParameters)),
         new EthMining(miningCoordinator),
         new EthCoinbase(miningCoordinator),
         new EthProtocolVersion(supportedCapabilities),

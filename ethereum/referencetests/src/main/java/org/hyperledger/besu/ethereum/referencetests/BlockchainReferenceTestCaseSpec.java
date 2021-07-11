@@ -15,6 +15,8 @@
  */
 package org.hyperledger.besu.ethereum.referencetests;
 
+import static org.hyperledger.besu.ethereum.core.InMemoryKeyValueStorageProvider.createInMemoryWorldStateArchive;
+
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Address;
@@ -24,7 +26,7 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.Difficulty;
 import org.hyperledger.besu.ethereum.core.Hash;
-import org.hyperledger.besu.ethereum.core.InMemoryStorageProvider;
+import org.hyperledger.besu.ethereum.core.InMemoryKeyValueStorageProvider;
 import org.hyperledger.besu.ethereum.core.LogsBloomFilter;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.ParsedExtraData;
@@ -62,8 +64,7 @@ public class BlockchainReferenceTestCaseSpec {
 
   private static WorldStateArchive buildWorldStateArchive(
       final Map<String, ReferenceTestWorldState.AccountMock> accounts) {
-    final WorldStateArchive worldStateArchive =
-        InMemoryStorageProvider.createInMemoryWorldStateArchive();
+    final WorldStateArchive worldStateArchive = createInMemoryWorldStateArchive();
 
     final MutableWorldState worldState = worldStateArchive.getMutable();
     final WorldUpdater updater = worldState.updater();
@@ -74,14 +75,14 @@ public class BlockchainReferenceTestCaseSpec {
     }
 
     updater.commit();
-    worldState.persist();
+    worldState.persist(null);
 
     return worldStateArchive;
   }
 
   private static MutableBlockchain buildBlockchain(final BlockHeader genesisBlockHeader) {
     final Block genesisBlock = new Block(genesisBlockHeader, BlockBody.empty());
-    return InMemoryStorageProvider.createInMemoryBlockchain(genesisBlock);
+    return InMemoryKeyValueStorageProvider.createInMemoryBlockchain(genesisBlock);
   }
 
   @JsonCreator
@@ -152,7 +153,7 @@ public class BlockchainReferenceTestCaseSpec {
         @JsonProperty("gasUsed") final String gasUsed,
         @JsonProperty("timestamp") final String timestamp,
         @JsonProperty("extraData") final String extraData,
-        @JsonProperty("baseFee") final String baseFee,
+        @JsonProperty("baseFeePerGas") final String baseFee,
         @JsonProperty("mixHash") final String mixHash,
         @JsonProperty("nonce") final String nonce,
         @JsonProperty("hash") final String hash) {
@@ -200,7 +201,8 @@ public class BlockchainReferenceTestCaseSpec {
     "blocknumber",
     "chainname",
     "expectExceptionALL",
-    "chainnetwork"
+    "chainnetwork",
+    "transactionSequence"
   })
   public static class CandidateBlock {
 

@@ -76,7 +76,7 @@ public class MainnetTransactionProcessorTest {
         transactionValidationParamCaptor();
 
     final TransactionValidationParams expectedValidationParams =
-        new TransactionValidationParams.Builder().build();
+        ImmutableTransactionValidationParams.builder().build();
 
     transactionProcessor.processTransaction(
         blockchain,
@@ -86,7 +86,7 @@ public class MainnetTransactionProcessorTest {
         Address.fromHexString("1"),
         blockHashLookup,
         false,
-        new TransactionValidationParams.Builder().build());
+        ImmutableTransactionValidationParams.builder().build());
 
     assertThat(txValidationParamCaptor.getValue())
         .isEqualToComparingFieldByField(expectedValidationParams);
@@ -95,7 +95,7 @@ public class MainnetTransactionProcessorTest {
   private ArgumentCaptor<TransactionValidationParams> transactionValidationParamCaptor() {
     final ArgumentCaptor<TransactionValidationParams> txValidationParamCaptor =
         ArgumentCaptor.forClass(TransactionValidationParams.class);
-    when(transactionValidator.validate(any(), any())).thenReturn(ValidationResult.valid());
+    when(transactionValidator.validate(any(), any(), any())).thenReturn(ValidationResult.valid());
     // returning invalid transaction to halt method execution
     when(transactionValidator.validateForSender(any(), any(), txValidationParamCaptor.capture()))
         .thenReturn(ValidationResult.invalid(TransactionInvalidReason.INCORRECT_NONCE));

@@ -29,6 +29,7 @@ import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
+import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Wei;
 import org.hyperledger.besu.ethereum.core.fees.EIP1559;
@@ -37,16 +38,18 @@ import org.hyperledger.besu.ethereum.eth.manager.EthMessages;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.eth.sync.state.SyncState;
+import org.hyperledger.besu.ethereum.eth.transactions.ImmutableTransactionPoolConfiguration;
 import org.hyperledger.besu.ethereum.eth.transactions.PendingTransactions;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolConfiguration;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolFactory;
-import org.hyperledger.besu.ethereum.mainnet.EthHash;
-import org.hyperledger.besu.ethereum.mainnet.EthHashSolver;
-import org.hyperledger.besu.ethereum.mainnet.EthHasher;
+import org.hyperledger.besu.ethereum.mainnet.EpochCalculator;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.mainnet.MainnetProtocolSchedule;
+import org.hyperledger.besu.ethereum.mainnet.PoWHasher;
+import org.hyperledger.besu.ethereum.mainnet.PoWSolution;
+import org.hyperledger.besu.ethereum.mainnet.PoWSolver;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.ScheduleBasedBlockHeaderFunctions;
@@ -62,22 +65,19 @@ import org.hyperledger.besu.util.Subscribers;
 
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.units.bigints.UInt256;
 
 public class RetestethContext {
 
   private static final Logger LOG = LogManager.getLogger();
-  private static final EthHasher NO_WORK_HASHER =
-      (final byte[] buffer,
-          final long nonce,
-          final long number,
-          Function<Long, Long> epochCalc,
-          final byte[] headerHash) -> {};
+  private static final PoWHasher NO_WORK_HASHER =
+      (final long nonce, final long number, EpochCalculator epochCalc, final Bytes headerHash) ->
+          new PoWSolution(nonce, Hash.ZERO, UInt256.ZERO.toBytes(), Hash.ZERO);
 
   private final ReentrantLock contextLock = new ReentrantLock();
   private Address coinbase;
@@ -93,7 +93,7 @@ public class RetestethContext {
 
   private TransactionPool transactionPool;
   private EthScheduler ethScheduler;
-  private EthHashSolver ethHashSolver;
+  private PoWSolver poWSolver;
 
   public boolean resetContext(
       final String genesisConfigString, final String sealEngine, final Optional<Long> clockTime) {
@@ -161,12 +161,20 @@ public class RetestethContext {
             : HeaderValidationMode.FULL;
 
     final Iterable<Long> nonceGenerator = new IncrementingNonceGenerator(0);
-    ethHashSolver =
+    poWSolver =
         ("NoProof".equals(sealengine) || "NoReward".equals(sealEngine))
-            ? new EthHashSolver(
-                nonceGenerator, NO_WORK_HASHER, false, Subscribers.none(), EthHash::epoch)
-            : new EthHashSolver(
-                nonceGenerator, new EthHasher.Light(), false, Subscribers.none(), EthHash::epoch);
+            ? new PoWSolver(
+                nonceGenerator,
+                NO_WORK_HASHER,
+                false,
+                Subscribers.none(),
+                new EpochCalculator.DefaultEpochCalculator())
+            : new PoWSolver(
+                nonceGenerator,
+                PoWHasher.ETHASH_LIGHT,
+                false,
+                Subscribers.none(),
+                new EpochCalculator.DefaultEpochCalculator());
 
     blockReplay =
         new BlockReplay(
@@ -183,7 +191,7 @@ public class RetestethContext {
     final EthContext ethContext = new EthContext(ethPeers, new EthMessages(), ethScheduler);
 
     final TransactionPoolConfiguration transactionPoolConfiguration =
-        TransactionPoolConfiguration.builder().build();
+        ImmutableTransactionPoolConfiguration.builder().build();
 
     transactionPool =
         TransactionPoolFactory.createTransactionPool(
@@ -195,7 +203,6 @@ public class RetestethContext {
             syncState,
             Wei.ZERO,
             transactionPoolConfiguration,
-            true,
             jsonGenesisConfigOptions.getEIP1559BlockNumber().isPresent()
                 ? Optional.of(
                     new EIP1559(jsonGenesisConfigOptions.getEIP1559BlockNumber().getAsLong()))
@@ -280,7 +287,7 @@ public class RetestethContext {
     return retestethClock;
   }
 
-  public EthHashSolver getEthHashSolver() {
-    return ethHashSolver;
+  public PoWSolver getEthHashSolver() {
+    return poWSolver;
   }
 }

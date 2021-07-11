@@ -53,16 +53,16 @@ public interface Transaction {
    *
    * @return the quantity of Wei per gas unit paid.
    */
-  Quantity getGasPrice();
+  Optional<? extends Quantity> getGasPrice();
 
   /**
    * A scalar value equal to the number of Wei to be paid on top of base fee, as specified in
    * EIP-1559.
    *
-   * @return the quantity of Wei for gas premium.
+   * @return the quantity of Wei for max fee per gas
    */
   @Unstable
-  default Optional<Quantity> getGasPremium() {
+  default Optional<? extends Quantity> getMaxPriorityFeePerGas() {
     return Optional.empty();
   }
 
@@ -72,7 +72,7 @@ public interface Transaction {
    * @return the quantity of Wei for fee cap.
    */
   @Unstable
-  default Optional<Quantity> getFeeCap() {
+  default Optional<? extends Quantity> getMaxFeePerGas() {
     return Optional.empty();
   }
 
@@ -172,36 +172,10 @@ public interface Transaction {
   Bytes getPayload();
 
   /**
-   * Returns whether or not the transaction is a legacy transaction.
-   *
-   * @return true if legacy transaction, false otherwise
-   */
-  @Unstable
-  default boolean isFrontierTransaction() {
-    return true;
-  }
-
-  /**
-   * Returns whether or not the transaction is an EIP-1559 transaction.
-   *
-   * @return true if EIP-1559 transaction, false otherwise
-   */
-  @Unstable
-  default boolean isEIP1559Transaction() {
-    return false;
-  }
-
-  /**
    * Returns the type of the transaction.
    *
    * @return the type of the transaction
    */
   @Unstable
-  default TransactionType getType() {
-    if (isEIP1559Transaction()) {
-      return TransactionType.EIP1559;
-    } else {
-      return TransactionType.FRONTIER;
-    }
-  }
+  TransactionType getType();
 }

@@ -29,12 +29,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.NodeKeyUtils;
-import org.hyperledger.besu.crypto.SECP256K1.KeyPair;
+import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.p2p.config.RlpxConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.DiscoveryPeer;
 import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeer;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURL;
+import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.peers.MutableLocalNode;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.peers.PeerPrivileges;
@@ -69,7 +70,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class RlpxAgentTest {
-  private static final KeyPair KEY_PAIR = KeyPair.generate();
+  private static final KeyPair KEY_PAIR = SignatureAlgorithmFactory.getInstance().generateKeyPair();
   private final RlpxConfiguration config = RlpxConfiguration.create();
   private final TestPeerPermissions peerPermissions = spy(new TestPeerPermissions());
   private final PeerPrivileges peerPrivileges = mock(PeerPrivileges.class);
@@ -240,8 +241,8 @@ public class RlpxAgentTest {
 
   @Test
   public void incomingConnection_deduplicatedWhenAlreadyConnected_peerWithHigherValueNodeId() {
-    final Bytes localNodeId = Bytes.fromHexString("0x01", EnodeURL.NODE_ID_SIZE);
-    final Bytes remoteNodeId = Bytes.fromHexString("0x02", EnodeURL.NODE_ID_SIZE);
+    final Bytes localNodeId = Bytes.fromHexString("0x01", EnodeURLImpl.NODE_ID_SIZE);
+    final Bytes remoteNodeId = Bytes.fromHexString("0x02", EnodeURLImpl.NODE_ID_SIZE);
 
     startAgent(localNodeId);
 
@@ -261,8 +262,8 @@ public class RlpxAgentTest {
   @Test
   public void incomingConnection_deduplicatedWhenAlreadyConnected_peerWithLowerValueNodeId()
       throws ExecutionException, InterruptedException {
-    final Bytes localNodeId = Bytes.fromHexString("0x02", EnodeURL.NODE_ID_SIZE);
-    final Bytes remoteNodeId = Bytes.fromHexString("0x01", EnodeURL.NODE_ID_SIZE);
+    final Bytes localNodeId = Bytes.fromHexString("0x02", EnodeURLImpl.NODE_ID_SIZE);
+    final Bytes remoteNodeId = Bytes.fromHexString("0x01", EnodeURLImpl.NODE_ID_SIZE);
 
     startAgent(localNodeId);
 

@@ -26,9 +26,11 @@ import org.hyperledger.besu.plugin.services.metrics.MetricCategory;
 import org.hyperledger.besu.tests.acceptance.dsl.StaticNodesUtils;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.net.URI;
 import java.nio.file.Files;
@@ -57,6 +59,9 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
 
   private final Map<String, Process> besuProcesses = new HashMap<>();
   private final ExecutorService outputProcessorExecutor = Executors.newCachedThreadPool();
+  private boolean capturingConsole;
+  private final ByteArrayOutputStream consoleContents = new ByteArrayOutputStream();
+  private final PrintStream consoleOut = new PrintStream(consoleContents);
 
   ProcessBesuNodeRunner() {
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
@@ -76,6 +81,9 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
     if (node.isDevMode()) {
       params.add("--network");
       params.add("DEV");
+    } else if (node.getNetwork() != null) {
+      params.add("--network");
+      params.add(node.getNetwork().name());
     }
 
     params.add("--sync-mode");
@@ -112,19 +120,26 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
 
     if (node.getPrivacyParameters().isEnabled()) {
       params.add("--privacy-enabled");
+
       params.add("--privacy-url");
       params.add(node.getPrivacyParameters().getEnclaveUri().toString());
+
       if (node.getPrivacyParameters().isMultiTenancyEnabled()) {
         params.add("--privacy-multi-tenancy-enabled");
       } else {
         params.add("--privacy-public-key-file");
         params.add(node.getPrivacyParameters().getEnclavePublicKeyFile().getAbsolutePath());
       }
+
       params.add("--privacy-marker-transaction-signing-key-file");
       params.add(node.homeDirectory().resolve("key").toString());
 
       if (node.getPrivacyParameters().isOnchainPrivacyGroupsEnabled()) {
         params.add("--privacy-onchain-groups-enabled");
+      }
+
+      if (node.getPrivacyParameters().isUnrestrictedPrivacyEnabled()) {
+        params.add("--Xprivacy-unrestricted-enabled");
       }
     }
 
@@ -198,6 +213,10 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
       for (final MetricCategory category : metricsConfiguration.getMetricCategories()) {
         params.add("--metrics-category");
         params.add(((Enum<?>) category).name());
+      }
+      if (node.isMetricsEnabled() || metricsConfiguration.isPushEnabled()) {
+        params.add("--metrics-protocol");
+        params.add(metricsConfiguration.getProtocol().name());
       }
       if (metricsConfiguration.isPushEnabled()) {
         params.add("--metrics-push-enabled");
@@ -350,6 +369,9 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
       while (line != null) {
         // would be nice to pass up the log level of the incoming log line
         PROCESS_LOG.info(line);
+        if (capturingConsole) {
+          consoleOut.println(line);
+        }
         line = in.readLine();
       }
     } catch (final IOException e) {
@@ -414,14 +436,15 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
   private void killBesuProcess(final String name) {
     final Process process = besuProcesses.remove(name);
     if (process == null) {
-      LOG.error("Process {} wasn't in our list", name);
+      LOG.error("Process {} wasn't in our list, pid {}", name, process.pid());
+      return;
     }
     if (!process.isAlive()) {
-      LOG.info("Process {} already exited", name);
+      LOG.info("Process {} already exited, pid {}", name, process.pid());
       return;
     }
 
-    LOG.info("Killing {} process", name);
+    LOG.info("Killing {} process, pid {}", name, process.pid());
 
     process.destroy();
     try {
@@ -431,7 +454,7 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
     }
 
     if (process.isAlive()) {
-      LOG.warn("Process {} still alive, destroying forcibly now", name);
+      LOG.warn("Process {} still alive, destroying forcibly now, pid {}", name, process.pid());
       try {
         process.destroyForcibly().waitFor(30, TimeUnit.SECONDS);
       } catch (final Exception e) {
@@ -439,5 +462,17 @@ public class ProcessBesuNodeRunner implements BesuNodeRunner {
       }
       LOG.info("Process exited with code {}", process.exitValue());
     }
+  }
+
+  @Override
+  public void startConsoleCapture() {
+    consoleContents.reset();
+    capturingConsole = true;
+  }
+
+  @Override
+  public String getConsoleContents() {
+    capturingConsole = false;
+    return consoleContents.toString(UTF_8);
   }
 }

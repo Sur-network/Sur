@@ -14,7 +14,6 @@
  */
 package org.hyperledger.besu.ethereum.mainnet;
 
-import org.hyperledger.besu.config.GenesisConfigFile;
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.difficulty.fixed.FixedDifficultyCalculators;
@@ -27,11 +26,6 @@ import java.util.function.Function;
 public class MainnetProtocolSchedule {
 
   public static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(1);
-
-  public static ProtocolSchedule create() {
-    return fromConfig(
-        GenesisConfigFile.mainnet().getConfigOptions(), PrivacyParameters.DEFAULT, false);
-  }
 
   /**
    * Create a Mainnet protocol schedule from a config object
@@ -53,7 +47,7 @@ public class MainnetProtocolSchedule {
     return new ProtocolScheduleBuilder(
             config,
             DEFAULT_CHAIN_ID,
-            Function.identity(),
+            ProtocolSpecAdapters.create(0, Function.identity()),
             privacyParameters,
             isRevertReasonEnabled,
             config.isQuorum())

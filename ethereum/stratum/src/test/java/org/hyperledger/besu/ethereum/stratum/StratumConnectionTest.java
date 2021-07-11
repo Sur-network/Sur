@@ -15,9 +15,11 @@
 package org.hyperledger.besu.ethereum.stratum;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
-import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
-import org.hyperledger.besu.ethereum.mainnet.EthHashSolverInputs;
+import org.hyperledger.besu.ethereum.blockcreation.PoWMiningCoordinator;
+import org.hyperledger.besu.ethereum.mainnet.EpochCalculator;
+import org.hyperledger.besu.ethereum.mainnet.PoWSolverInputs;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,11 +34,13 @@ import org.mockito.Mockito;
 
 public class StratumConnectionTest {
 
-  @Mock MiningCoordinator miningCoordinator;
+  @Mock PoWMiningCoordinator miningCoordinator;
 
   @Before
   public void setup() {
-    miningCoordinator = Mockito.mock(MiningCoordinator.class);
+    miningCoordinator = Mockito.mock(PoWMiningCoordinator.class);
+    when(miningCoordinator.getEpochCalculator())
+        .thenReturn(new EpochCalculator.DefaultEpochCalculator());
   }
 
   @Test
@@ -124,8 +128,7 @@ public class StratumConnectionTest {
     assertThat(called.get()).isFalse();
     // now send work without waiting.
     protocol.setCurrentWorkTask(
-        new EthHashSolverInputs(
-            UInt256.valueOf(3), Bytes.fromHexString("deadbeef").toArrayUnsafe(), 42));
+        new PoWSolverInputs(UInt256.valueOf(3), Bytes.fromHexString("deadbeef"), 42));
 
     assertThat(message.get())
         .isEqualTo(

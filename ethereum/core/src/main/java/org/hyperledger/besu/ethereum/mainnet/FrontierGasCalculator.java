@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.mainnet;
 import org.hyperledger.besu.ethereum.core.Account;
 import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Gas;
+import org.hyperledger.besu.ethereum.core.GasAndAccessedState;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Wei;
 import org.hyperledger.besu.ethereum.vm.GasCalculator;
@@ -113,7 +114,8 @@ public class FrontierGasCalculator implements GasCalculator {
   private static final Gas SELF_DESTRUCT_REFUND_AMOUNT = Gas.of(24_000L);
 
   @Override
-  public Gas transactionIntrinsicGasCost(final Transaction transaction) {
+  public GasAndAccessedState transactionIntrinsicGasCostAndAccessedState(
+      final Transaction transaction) {
     final Bytes payload = transaction.getPayload();
     int zeros = 0;
     for (int i = 0; i < payload.size(); i++) {
@@ -124,8 +126,7 @@ public class FrontierGasCalculator implements GasCalculator {
     final int nonZeros = payload.size() - zeros;
 
     Gas cost =
-        Gas.ZERO
-            .plus(TX_BASE_COST)
+        TX_BASE_COST
             .plus(TX_DATA_ZERO_COST.times(zeros))
             .plus(TX_DATA_NON_ZERO_COST.times(nonZeros));
 
@@ -133,7 +134,7 @@ public class FrontierGasCalculator implements GasCalculator {
       cost = cost.plus(txCreateExtraGasCost());
     }
 
-    return cost;
+    return new GasAndAccessedState(cost);
   }
 
   /**
@@ -211,7 +212,8 @@ public class FrontierGasCalculator implements GasCalculator {
    *
    * @return the base gas cost to execute a call operation
    */
-  protected Gas callOperationBaseGasCost() {
+  @Override
+  public Gas callOperationBaseGasCost() {
     return CALL_OPERATION_BASE_GAS_COST;
   }
 
@@ -442,12 +444,6 @@ public class FrontierGasCalculator implements GasCalculator {
     return SELF_DESTRUCT_REFUND_AMOUNT;
   }
 
-  @Override
-  public Gas getBeginSubGasCost() {
-    throw new UnsupportedOperationException(
-        "BEGINSUB operation not supported by " + getClass().getSimpleName());
-  }
-
   protected Gas copyWordsToMemoryGasCost(
       final MessageFrame frame,
       final Gas baseGasCost,
@@ -470,5 +466,12 @@ public class FrontierGasCalculator implements GasCalculator {
     final Gas base = len.times(len).dividedBy(512);
 
     return MEMORY_WORD_GAS_COST.times(len).plus(base);
+  }
+
+  @Override
+  public Gas getMaximumPmtCost() {
+    // what would be the gas for PMT with hash of all non-zeros
+    int nonZeros = 64;
+    return TX_BASE_COST.plus(TX_DATA_NON_ZERO_COST.times(nonZeros));
   }
 }

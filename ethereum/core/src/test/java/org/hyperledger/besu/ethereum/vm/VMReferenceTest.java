@@ -28,7 +28,6 @@ import org.hyperledger.besu.ethereum.privacy.PrivateTransactionValidator;
 import org.hyperledger.besu.ethereum.referencetests.EnvironmentInformation;
 import org.hyperledger.besu.ethereum.referencetests.ReferenceTestBlockchain;
 import org.hyperledger.besu.ethereum.referencetests.VMReferenceTestCaseSpec;
-import org.hyperledger.besu.ethereum.vm.operations.ReturnStack;
 import org.hyperledger.besu.ethereum.worldstate.DefaultMutableWorldState;
 import org.hyperledger.besu.testutil.JsonTestParameters;
 
@@ -48,18 +47,17 @@ public class VMReferenceTest extends AbstractRetryingTest {
 
   /** The path where all of the VM test configuration files live. */
   private static final String[] TEST_CONFIG_FILE_DIR_PATHS = {
-    "VMTests/vmArithmeticTest",
-    "VMTests/vmBitwiseLogicOperation",
-    "VMTests/vmBlockInfoTest",
-    "VMTests/vmEnvironmentalInfo",
-    "VMTests/vmIOandFlowOperations",
-    "VMTests/vmLogTest",
-    //    "VMTests/vmPerformance",
-    "VMTests/vmPushDupSwapTest",
-    "VMTests/vmRandomTest",
-    "VMTests/vmSha3Test",
-    "VMTests/vmTests",
-    "VMTests/vmSystemOperations"
+    "LegacyTests/Constantinople/VMTests/vmArithmeticTest",
+    "LegacyTests/Constantinople/VMTests/vmBitwiseLogicOperation",
+    "LegacyTests/Constantinople/VMTests/vmBlockInfoTest",
+    "LegacyTests/Constantinople/VMTests/vmEnvironmentalInfo",
+    "LegacyTests/Constantinople/VMTests/vmIOandFlowOperations",
+    "LegacyTests/Constantinople/VMTests/vmLogTest",
+    "LegacyTests/Constantinople/VMTests/vmPushDupSwapTest",
+    "LegacyTests/Constantinople/VMTests/vmRandomTest",
+    "LegacyTests/Constantinople/VMTests/vmSha3Test",
+    "LegacyTests/Constantinople/VMTests/vmTests",
+    "LegacyTests/Constantinople/VMTests/vmSystemOperations"
   };
 
   // The ignored test cases fall into two categories:
@@ -104,8 +102,6 @@ public class VMReferenceTest extends AbstractRetryingTest {
             .badBlocksManager(new BadBlockManager())
             .build(new MutableProtocolSchedule(CHAIN_ID));
 
-    final ReturnStack returnStack = new ReturnStack();
-
     final ReferenceTestBlockchain blockchain =
         new ReferenceTestBlockchain(execEnv.getBlockHeader().getNumber());
     final MessageFrame frame =
@@ -131,7 +127,6 @@ public class VMReferenceTest extends AbstractRetryingTest {
             .miningBeneficiary(execEnv.getBlockHeader().getCoinbase())
             .blockHashLookup(new BlockHashLookup(execEnv.getBlockHeader(), blockchain))
             .maxStackSize(MessageFrame.DEFAULT_MAX_STACK_SIZE)
-            .returnStack(returnStack)
             .build();
 
     // This is normally set inside the containing message executing the code.

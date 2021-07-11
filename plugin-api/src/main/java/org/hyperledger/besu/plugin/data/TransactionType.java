@@ -14,7 +14,54 @@
  */
 package org.hyperledger.besu.plugin.data;
 
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Set;
+
 public enum TransactionType {
-  FRONTIER,
-  EIP1559
+  FRONTIER(0xf8 /* doesn't end up being used as we don't serialize legacy txs with their type */),
+  ACCESS_LIST(0x01),
+  EIP1559(0x02);
+
+  private static final Set<TransactionType> ACCESS_LIST_SUPPORTED_TRANSACTION_TYPES =
+      Set.of(ACCESS_LIST, EIP1559);
+
+  private static final EnumSet<TransactionType> LEGACY_FEE_MARKET_TRANSACTION_TYPES =
+      EnumSet.of(TransactionType.FRONTIER, TransactionType.ACCESS_LIST);
+
+  private final int typeValue;
+
+  TransactionType(final int typeValue) {
+    this.typeValue = typeValue;
+  }
+
+  public byte getSerializedType() {
+    return (byte) this.typeValue;
+  }
+
+  public int compareTo(final Byte b) {
+    return Byte.valueOf(getSerializedType()).compareTo(b);
+  }
+
+  public static TransactionType of(final int serializedTypeValue) {
+    return Arrays.stream(TransactionType.values())
+        .filter(transactionType -> transactionType.typeValue == serializedTypeValue)
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    String.format("Unsupported transaction type %x", serializedTypeValue)));
+  }
+
+  public boolean supportsAccessList() {
+    return ACCESS_LIST_SUPPORTED_TRANSACTION_TYPES.contains(this);
+  }
+
+  public boolean supports1559FeeMarket() {
+    return !LEGACY_FEE_MARKET_TRANSACTION_TYPES.contains(this);
+  }
+
+  public boolean requiresChainId() {
+    return !this.equals(FRONTIER);
+  }
 }

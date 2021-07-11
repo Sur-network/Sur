@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.privacy.storage.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.hyperledger.besu.ethereum.core.PrivateTransactionDataFixture.privacyMarkerTransaction;
+import static org.hyperledger.besu.ethereum.core.PrivateTransactionDataFixture.privateMarkerTransaction;
 import static org.hyperledger.besu.ethereum.privacy.PrivateStateRootResolver.EMPTY_ROOT_HASH;
 import static org.hyperledger.besu.ethereum.privacy.storage.PrivateStateKeyValueStorage.SCHEMA_VERSION_1_0_0;
 import static org.hyperledger.besu.ethereum.privacy.storage.PrivateStateKeyValueStorage.SCHEMA_VERSION_1_4_0;
@@ -28,11 +28,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import org.hyperledger.besu.crypto.SECP256K1.KeyPair;
+import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockDataGenerator;
+import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Transaction;
@@ -50,6 +51,7 @@ import org.hyperledger.besu.ethereum.privacy.storage.PrivateStateKeyValueStorage
 import org.hyperledger.besu.ethereum.privacy.storage.PrivateStateStorage;
 import org.hyperledger.besu.ethereum.privacy.storage.PrivateTransactionMetadata;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
+import org.hyperledger.besu.plugin.data.TransactionType;
 import org.hyperledger.besu.plugin.services.storage.KeyValueStorage;
 import org.hyperledger.besu.services.kvstore.InMemoryKeyValueStorage;
 
@@ -145,8 +147,8 @@ public class PrivateStorageMigrationTest {
 
   @Test
   public void successfulMigrationBumpsSchemaVersion() {
-    final Transaction privacyMarkerTransaction = createPrivacyMarkerTransaction();
-    mockBlockchainWithPrivacyMarkerTransaction(privacyMarkerTransaction);
+    final Transaction privateMarkerTransaction = createPrivateMarkerTransaction();
+    mockBlockchainWithPrivateMarkerTransaction(privateMarkerTransaction);
     assertThat(privateStateStorage.getSchemaVersion()).isEqualTo(SCHEMA_VERSION_1_0_0);
 
     migration.migratePrivateStorage();
@@ -156,8 +158,8 @@ public class PrivateStorageMigrationTest {
 
   @Test
   public void failedMigrationThrowsErrorAndDoesNotBumpSchemaVersion() {
-    final Transaction privacyMarkerTransaction = createPrivacyMarkerTransaction();
-    mockBlockchainWithPrivacyMarkerTransaction(privacyMarkerTransaction);
+    final Transaction privateMarkerTransaction = createPrivateMarkerTransaction();
+    mockBlockchainWithPrivateMarkerTransaction(privateMarkerTransaction);
     final Hash rootHashOtherThanZero = Hash.wrap(Bytes32.fromHexStringLenient("1"));
     createPrivacyGroupHeadBlockInitialMapAndMetadata(PRIVACY_GROUP_BYTES, rootHashOtherThanZero);
 
@@ -184,8 +186,8 @@ public class PrivateStorageMigrationTest {
 
   @Test
   public void migrationReprocessBlocksWithPMT() {
-    final Transaction privacyMarkerTransaction = createPrivacyMarkerTransaction();
-    mockBlockchainWithPrivacyMarkerTransaction(privacyMarkerTransaction);
+    final Transaction privateMarkerTransaction = createPrivateMarkerTransaction();
+    mockBlockchainWithPrivateMarkerTransaction(privateMarkerTransaction);
     final Block blockWithPMT = blockchain.getBlockByNumber(1L).orElseThrow();
 
     migration.migratePrivateStorage();
@@ -206,7 +208,7 @@ public class PrivateStorageMigrationTest {
   public void migrationOnlyProcessRequiredTransactions() {
     final List<Transaction> transactions = new ArrayList<>();
     transactions.add(publicTransaction());
-    transactions.add(createPrivacyMarkerTransaction());
+    transactions.add(createPrivateMarkerTransaction());
     transactions.add(publicTransaction());
 
     mockBlockchainWithTransactionsInABlock(transactions);
@@ -238,10 +240,10 @@ public class PrivateStorageMigrationTest {
     return existingPgHeadMap;
   }
 
-  private Transaction createPrivacyMarkerTransaction() {
-    final Transaction privacyMarkerTransaction = privacyMarkerTransaction();
-    mockBlockchainWithPrivacyMarkerTransaction(privacyMarkerTransaction);
-    return privacyMarkerTransaction;
+  private Transaction createPrivateMarkerTransaction() {
+    final Transaction privateMarkerTransaction = privateMarkerTransaction();
+    mockBlockchainWithPrivateMarkerTransaction(privateMarkerTransaction);
+    return privateMarkerTransaction;
   }
 
   private void mockBlockchainWithZeroTransactions() {
@@ -263,7 +265,7 @@ public class PrivateStorageMigrationTest {
         .thenReturn(Optional.of(EMPTY_ROOT_HASH));
   }
 
-  private void mockBlockchainWithPrivacyMarkerTransaction(final Transaction transaction) {
+  private void mockBlockchainWithPrivateMarkerTransaction(final Transaction transaction) {
     final BlockDataGenerator blockDataGenerator = new BlockDataGenerator();
 
     final Block genesis = blockDataGenerator.genesisBlock();
@@ -296,11 +298,13 @@ public class PrivateStorageMigrationTest {
   }
 
   private void mockBlockInBlockchain(final Block block) {
-    when(blockchain.getBlockByNumber(block.getHeader().getNumber())).thenReturn(Optional.of(block));
-    when(blockchain.getBlockHeader(block.getHash())).thenReturn(Optional.of(block.getHeader()));
-    when(blockchain.getBlockBody(block.getHash())).thenReturn(Optional.of(block.getBody()));
+    final BlockHeader blockHeader = block.getHeader();
+    final Hash blockHash = block.getHash();
+    when(blockchain.getBlockByNumber(blockHeader.getNumber())).thenReturn(Optional.of(block));
+    when(blockchain.getBlockHeader(blockHash)).thenReturn(Optional.of(blockHeader));
+    when(blockchain.getBlockBody(blockHash)).thenReturn(Optional.of(block.getBody()));
 
-    when(publicWorldStateArchive.getMutable(block.getHeader().getStateRoot()))
+    when(publicWorldStateArchive.getMutable(blockHeader.getStateRoot(), blockHash))
         .thenReturn(Optional.of(publicMutableWorldState));
   }
 
@@ -311,13 +315,14 @@ public class PrivateStorageMigrationTest {
 
   private Transaction publicTransaction() {
     return Transaction.builder()
+        .type(TransactionType.FRONTIER)
         .nonce(0)
         .gasPrice(Wei.of(1000))
         .gasLimit(3000000)
         .value(Wei.ZERO)
         .payload(Bytes.EMPTY)
         .sender(Address.fromHexString("0xfe3b557e8fb62b89f4916b721be55ceb828dbd73"))
-        .chainId(BigInteger.valueOf(2018))
-        .signAndBuild(KeyPair.generate());
+        .chainId(BigInteger.valueOf(1337))
+        .signAndBuild(SignatureAlgorithmFactory.getInstance().generateKeyPair());
   }
 }

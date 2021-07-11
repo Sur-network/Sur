@@ -14,10 +14,12 @@
  */
 package org.hyperledger.besu.consensus.ibft.validation;
 
-import org.hyperledger.besu.consensus.ibft.ConsensusRoundIdentifier;
-import org.hyperledger.besu.consensus.ibft.IbftContext;
-import org.hyperledger.besu.consensus.ibft.IbftHelpers;
-import org.hyperledger.besu.consensus.ibft.blockcreation.ProposerSelector;
+import org.hyperledger.besu.consensus.common.bft.BftBlockInterface;
+import org.hyperledger.besu.consensus.common.bft.BftContext;
+import org.hyperledger.besu.consensus.common.bft.BftExtraDataCodec;
+import org.hyperledger.besu.consensus.common.bft.BftHelpers;
+import org.hyperledger.besu.consensus.common.bft.ConsensusRoundIdentifier;
+import org.hyperledger.besu.consensus.common.bft.blockcreation.ProposerSelector;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.core.Address;
@@ -31,19 +33,22 @@ public class MessageValidatorFactory {
   private final ProposerSelector proposerSelector;
   private final ProtocolContext protocolContext;
   private final ProtocolSchedule protocolSchedule;
+  private final BftExtraDataCodec bftExtraDataCodec;
 
   public MessageValidatorFactory(
       final ProposerSelector proposerSelector,
       final ProtocolSchedule protocolSchedule,
-      final ProtocolContext protocolContext) {
+      final ProtocolContext protocolContext,
+      final BftExtraDataCodec bftExtraDataCodec) {
     this.proposerSelector = proposerSelector;
     this.protocolSchedule = protocolSchedule;
     this.protocolContext = protocolContext;
+    this.bftExtraDataCodec = bftExtraDataCodec;
   }
 
   private Collection<Address> getValidatorsAfterBlock(final BlockHeader parentHeader) {
     return protocolContext
-        .getConsensusState(IbftContext.class)
+        .getConsensusState(BftContext.class)
         .getVoteTallyCache()
         .getVoteTallyAfterBlock(parentHeader)
         .getValidators();
@@ -64,6 +69,9 @@ public class MessageValidatorFactory {
         protocolSchedule.getByBlockNumber(roundIdentifier.getSequenceNumber()).getBlockValidator();
     final Collection<Address> validators = getValidatorsAfterBlock(parentHeader);
 
+    final BftBlockInterface bftBlockInterface =
+        protocolContext.getConsensusState(BftContext.class).getBlockInterface();
+
     return new MessageValidator(
         createSignedDataValidator(roundIdentifier, parentHeader),
         new ProposalBlockConsistencyValidator(),
@@ -72,21 +80,26 @@ public class MessageValidatorFactory {
         new RoundChangeCertificateValidator(
             validators,
             (ri) -> createSignedDataValidator(ri, parentHeader),
-            roundIdentifier.getSequenceNumber()));
+            roundIdentifier.getSequenceNumber(),
+            bftExtraDataCodec,
+            bftBlockInterface));
   }
 
   public RoundChangeMessageValidator createRoundChangeMessageValidator(
       final long chainHeight, final BlockHeader parentHeader) {
     final Collection<Address> validators = getValidatorsAfterBlock(parentHeader);
 
+    final BftBlockInterface bftBlockInterface =
+        protocolContext.getConsensusState(BftContext.class).getBlockInterface();
     return new RoundChangeMessageValidator(
         new RoundChangePayloadValidator(
             (roundIdentifier) -> createSignedDataValidator(roundIdentifier, parentHeader),
             validators,
-            IbftHelpers.prepareMessageCountForQuorum(
-                IbftHelpers.calculateRequiredValidatorQuorum(validators.size())),
+            BftHelpers.prepareMessageCountForQuorum(
+                BftHelpers.calculateRequiredValidatorQuorum(validators.size())),
             chainHeight),
-        new ProposalBlockConsistencyValidator());
+        new ProposalBlockConsistencyValidator(),
+        bftBlockInterface);
   }
 
   public FutureRoundProposalMessageValidator createFutureRoundProposalMessageValidator(

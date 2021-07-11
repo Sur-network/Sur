@@ -15,17 +15,11 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import org.hyperledger.besu.ethereum.core.Address;
-import org.hyperledger.besu.ethereum.core.Gas;
 import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.core.deserializer.GasDeserializer;
-import org.hyperledger.besu.ethereum.core.deserializer.HexStringDeserializer;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.apache.tuweni.bytes.Bytes;
 
 // Represents parameters for a eth_call or eth_estimateGas JSON-RPC methods.
@@ -37,37 +31,15 @@ public class CallParameter {
 
   private final long gasLimit;
 
-  private final Optional<Wei> gasPremium;
+  private final Optional<Wei> maxPriorityFeePerGas;
 
-  private final Optional<Wei> feeCap;
+  private final Optional<Wei> maxFeePerGas;
 
   private final Wei gasPrice;
 
   private final Wei value;
 
   private final Bytes payload;
-
-  @JsonCreator
-  public CallParameter(
-      @JsonProperty("from") final Address from,
-      @JsonProperty("to") final Address to,
-      @JsonDeserialize(using = GasDeserializer.class) @JsonProperty("gas") final Gas gasLimit,
-      @JsonProperty("gasPrice") final Wei gasPrice,
-      @JsonProperty("gasPremium") final Wei gasPremium,
-      @JsonProperty("feeCap") final Wei feeCap,
-      @JsonProperty("value") final Wei value,
-      @JsonDeserialize(using = HexStringDeserializer.class) @JsonProperty("data")
-          final Bytes payload) {
-    this(
-        from,
-        to,
-        gasLimit != null ? gasLimit.toLong() : -1,
-        gasPrice,
-        Optional.ofNullable(gasPremium),
-        Optional.ofNullable(feeCap),
-        value,
-        payload);
-  }
 
   public CallParameter(
       final Address from,
@@ -79,8 +51,8 @@ public class CallParameter {
     this.from = from;
     this.to = to;
     this.gasLimit = gasLimit;
-    this.gasPremium = Optional.empty();
-    this.feeCap = Optional.empty();
+    this.maxPriorityFeePerGas = Optional.empty();
+    this.maxFeePerGas = Optional.empty();
     this.gasPrice = gasPrice;
     this.value = value;
     this.payload = payload;
@@ -91,15 +63,15 @@ public class CallParameter {
       final Address to,
       final long gasLimit,
       final Wei gasPrice,
-      final Optional<Wei> gasPremium,
-      final Optional<Wei> feeCap,
+      final Optional<Wei> maxPriorityFeePerGas,
+      final Optional<Wei> maxFeePerGas,
       final Wei value,
       final Bytes payload) {
     this.from = from;
     this.to = to;
     this.gasLimit = gasLimit;
-    this.gasPremium = gasPremium;
-    this.feeCap = feeCap;
+    this.maxPriorityFeePerGas = maxPriorityFeePerGas;
+    this.maxFeePerGas = maxFeePerGas;
     this.gasPrice = gasPrice;
     this.value = value;
     this.payload = payload;
@@ -121,12 +93,12 @@ public class CallParameter {
     return gasPrice;
   }
 
-  public Optional<Wei> getGasPremium() {
-    return gasPremium;
+  public Optional<Wei> getMaxPriorityFeePerGas() {
+    return maxPriorityFeePerGas;
   }
 
-  public Optional<Wei> getFeeCap() {
-    return feeCap;
+  public Optional<Wei> getMaxFeePerGas() {
+    return maxFeePerGas;
   }
 
   public Wei getValue() {
@@ -150,14 +122,15 @@ public class CallParameter {
         && Objects.equals(from, that.from)
         && Objects.equals(to, that.to)
         && Objects.equals(gasPrice, that.gasPrice)
-        && Objects.equals(gasPremium, that.gasPremium)
-        && Objects.equals(feeCap, that.feeCap)
+        && Objects.equals(maxPriorityFeePerGas, that.maxPriorityFeePerGas)
+        && Objects.equals(maxFeePerGas, that.maxFeePerGas)
         && Objects.equals(value, that.value)
         && Objects.equals(payload, that.payload);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(from, to, gasLimit, gasPrice, gasPremium, feeCap, value, payload);
+    return Objects.hash(
+        from, to, gasLimit, gasPrice, maxPriorityFeePerGas, maxFeePerGas, value, payload);
   }
 }

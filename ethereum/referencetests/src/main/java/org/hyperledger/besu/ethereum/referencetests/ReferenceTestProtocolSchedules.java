@@ -17,10 +17,10 @@ package org.hyperledger.besu.ethereum.referencetests;
 
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.config.StubGenesisConfigOptions;
-import org.hyperledger.besu.config.experimental.ExperimentalEIPs;
 import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder;
+import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecAdapters;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -58,14 +58,13 @@ public class ReferenceTestProtocolSchedules {
     builder.put(
         "Constantinople", createSchedule(new StubGenesisConfigOptions().constantinopleBlock(0)));
     builder.put(
-        "ConstantinopleFix",
-        createSchedule(new StubGenesisConfigOptions().constantinopleFixBlock(0)));
+        "ConstantinopleFix", createSchedule(new StubGenesisConfigOptions().petersburgBlock(0)));
+    builder.put("Petersburg", createSchedule(new StubGenesisConfigOptions().petersburgBlock(0)));
     builder.put("Istanbul", createSchedule(new StubGenesisConfigOptions().istanbulBlock(0)));
     builder.put("MuirGlacier", createSchedule(new StubGenesisConfigOptions().muirGlacierBlock(0)));
-    if (ExperimentalEIPs.berlinEnabled) {
-      builder.put("Berlin", createSchedule(new StubGenesisConfigOptions().berlinBlock(0)));
-      builder.put("YOLOv2", createSchedule(new StubGenesisConfigOptions().berlinBlock(0)));
-    }
+    builder.put("Berlin", createSchedule(new StubGenesisConfigOptions().berlinBlock(0)));
+    builder.put("London", createSchedule(new StubGenesisConfigOptions().londonBlock(0)));
+    builder.put("Baikal", createSchedule(new StubGenesisConfigOptions().londonBlock(0)));
     return new ReferenceTestProtocolSchedules(builder.build());
   }
 
@@ -83,7 +82,7 @@ public class ReferenceTestProtocolSchedules {
     return new ProtocolScheduleBuilder(
             options,
             CHAIN_ID,
-            Function.identity(),
+            ProtocolSpecAdapters.create(0, Function.identity()),
             PrivacyParameters.DEFAULT,
             false,
             options.isQuorum())

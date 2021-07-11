@@ -50,7 +50,7 @@ public class PrivacyGroupUtil {
     final BytesValueRLPOutput bytesValueRLPOutput = new BytesValueRLPOutput();
     bytesValueRLPOutput.writeList(
         sortedPublicEnclaveKeys,
-        (enclavePublicKey, rlpOutput) -> rlpOutput.writeBytes(Bytes.of(enclavePublicKey)));
+        (privacyUserId, rlpOutput) -> rlpOutput.writeBytes(Bytes.of(privacyUserId)));
 
     return Hash.keccak256(bytesValueRLPOutput.encoded());
   }
@@ -58,21 +58,21 @@ public class PrivacyGroupUtil {
   public static Optional<PrivacyGroup> findOnchainPrivacyGroup(
       final PrivacyController privacyController,
       final Optional<Bytes> maybePrivacyGroupId,
-      final String enclavePublicKey,
+      final String privacyUserId,
       final PrivateTransaction privateTransaction) {
     return maybePrivacyGroupId.flatMap(
         privacyGroupId ->
-            privacyController.retrieveOnChainPrivacyGroupWithToBeAddedMembers(
-                privacyGroupId, enclavePublicKey, privateTransaction));
+            privacyController.findOnChainPrivacyGroupAndAddNewMembers(
+                privacyGroupId, privacyUserId, privateTransaction));
   }
 
   public static Optional<PrivacyGroup> findOffchainPrivacyGroup(
       final PrivacyController privacyController,
       final Optional<Bytes> maybePrivacyGroupId,
-      final String enclavePublicKey) {
+      final String privacyUserId) {
     return maybePrivacyGroupId.flatMap(
         privacyGroupId ->
-            privacyController.retrieveOffChainPrivacyGroup(
-                privacyGroupId.toBase64String(), enclavePublicKey));
+            privacyController.findOffChainPrivacyGroupByGroupId(
+                privacyGroupId.toBase64String(), privacyUserId));
   }
 }

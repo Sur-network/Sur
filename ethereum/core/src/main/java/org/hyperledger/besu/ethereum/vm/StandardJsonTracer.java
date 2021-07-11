@@ -20,7 +20,6 @@ import org.hyperledger.besu.ethereum.core.Gas;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.vm.Operation.OperationResult;
-import org.hyperledger.besu.ethereum.vm.operations.ReturnStack;
 
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -80,11 +79,6 @@ public class StandardJsonTracer implements OperationTracer {
     for (int i = messageFrame.stackSize() - 1; i >= 0; i--) {
       stack.add(shortBytes(messageFrame.getStackItem(i)));
     }
-    final ArrayNode returnStack = traceLine.putArray("returnStack");
-    final ReturnStack rs = messageFrame.getReturnStack();
-    for (int i = rs.size() - 1; i >= 0; i--) {
-      returnStack.add("0x" + Integer.toHexString(rs.get(i) - 1));
-    }
     Bytes returnData = messageFrame.getReturnData();
     traceLine.put("returnData", returnData.size() > 0 ? returnData.toHexString() : null);
     traceLine.put("depth", messageFrame.getMessageStackDepth() + 1);
@@ -94,6 +88,7 @@ public class StandardJsonTracer implements OperationTracer {
     traceLine.put("refund", messageFrame.getGasRefund().toLong());
     traceLine.put(
         "gasCost", executeResult.getGasCost().map(gas -> shortNumber(gas.asUInt256())).orElse(""));
+
     if (showMemory) {
       traceLine.put(
           "memory",
@@ -116,7 +111,7 @@ public class StandardJsonTracer implements OperationTracer {
                     .orElse(""));
     traceLine.put("opName", currentOp.getName());
     traceLine.put("error", error);
-    out.println(traceLine.toString());
+    out.println(traceLine);
   }
 
   @Override

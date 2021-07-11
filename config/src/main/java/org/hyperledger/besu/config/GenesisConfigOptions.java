@@ -15,6 +15,7 @@
 package org.hyperledger.besu.config;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -24,21 +25,27 @@ public interface GenesisConfigOptions {
 
   boolean isEthHash();
 
+  boolean isKeccak256();
+
   boolean isIbftLegacy();
 
   boolean isIbft2();
+
+  boolean isQbft();
 
   boolean isClique();
 
   String getConsensusEngine();
 
-  IbftConfigOptions getIbftLegacyConfigOptions();
+  IbftLegacyConfigOptions getIbftLegacyConfigOptions();
 
   CliqueConfigOptions getCliqueConfigOptions();
 
-  IbftConfigOptions getIbft2ConfigOptions();
+  BftConfigOptions getBftConfigOptions();
 
   EthashConfigOptions getEthashConfigOptions();
+
+  Keccak256ConfigOptions getKeccak256ConfigOptions();
 
   OptionalLong getHomesteadBlockNumber();
 
@@ -52,7 +59,7 @@ public interface GenesisConfigOptions {
 
   OptionalLong getConstantinopleBlockNumber();
 
-  OptionalLong getConstantinopleFixBlockNumber();
+  OptionalLong getPetersburgBlockNumber();
 
   OptionalLong getIstanbulBlockNumber();
 
@@ -60,8 +67,14 @@ public interface GenesisConfigOptions {
 
   OptionalLong getBerlinBlockNumber();
 
+  OptionalLong getLondonBlockNumber();
+
   // TODO EIP-1559 change for the actual fork name when known
+  OptionalLong getAleutBlockNumber();
+
   OptionalLong getEIP1559BlockNumber();
+
+  List<Long> getForks();
 
   /**
    * Block number for the Dao Fork, this value is used to tell node to connect with peer that did
@@ -168,6 +181,25 @@ public interface GenesisConfigOptions {
    */
   OptionalLong getThanosBlockNumber();
 
+  /**
+   * Block number to activate Magneto on Classic networks.
+   *
+   * @return block number of Magneto fork on Classic networks
+   * @see <a
+   *     href="https://github.com/ethereumclassic/ECIPs/issues/424">https://github.com/ethereumclassic/ECIPs/issues/424</a>
+   */
+  OptionalLong getMagnetoBlockNumber();
+
+  /**
+   * Block number to activate ECIP-1049 on Classic networks. Changes the hashing algorithm to
+   * keccak-256.
+   *
+   * @return block number of ECIP-1049 fork on Classic networks
+   * @see <a
+   *     href="https://ecips.ethereumclassic.org/ECIPs/ecip-1049">https://ecips.ethereumclassic.org/ECIPs/ecip-1049</a>
+   */
+  OptionalLong getEcip1049BlockNumber();
+
   Optional<BigInteger> getChainId();
 
   OptionalInt getContractSizeLimit();
@@ -204,4 +236,18 @@ public interface GenesisConfigOptions {
    * @return block number to activate Quorum Permissioning
    */
   OptionalLong getQip714BlockNumber();
+
+  /**
+   * The PoW algorithm associated with the genesis file.
+   *
+   * @return the PoW algorithm in use.
+   */
+  PowAlgorithm getPowAlgorithm();
+
+  /**
+   * The elliptic curve which should be used in SignatureAlgorithm.
+   *
+   * @return the name of the elliptic curve.
+   */
+  Optional<String> getEcCurve();
 }

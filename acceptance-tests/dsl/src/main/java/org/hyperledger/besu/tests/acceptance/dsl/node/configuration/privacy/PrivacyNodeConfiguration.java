@@ -15,38 +15,32 @@
 package org.hyperledger.besu.tests.acceptance.dsl.node.configuration.privacy;
 
 import org.hyperledger.besu.tests.acceptance.dsl.node.configuration.BesuNodeConfiguration;
-import org.hyperledger.orion.testutil.OrionKeyConfiguration;
+import org.hyperledger.enclave.testutil.EnclaveKeyConfiguration;
 
 public class PrivacyNodeConfiguration {
 
-  private final int privacyAddress;
   private final boolean isOnchainPrivacyGroupEnabled;
-  private final BesuNodeConfiguration besuConfig;
-  private final OrionKeyConfiguration orionConfig;
   private final boolean isMultitenancyEnabled;
+  private final boolean isUnrestrictedEnabled;
+  private final BesuNodeConfiguration besuConfig;
+  private final EnclaveKeyConfiguration keyConfig;
 
   PrivacyNodeConfiguration(
-      final int privacyAddress,
-      final BesuNodeConfiguration besuConfig,
-      final OrionKeyConfiguration orionConfig) {
-    this(privacyAddress, false, false, besuConfig, orionConfig);
+      final BesuNodeConfiguration besuConfig, final EnclaveKeyConfiguration keyConfig) {
+    this(false, false, false, besuConfig, keyConfig);
   }
 
   PrivacyNodeConfiguration(
-      final int privacyAddress,
       final boolean isOnchainPrivacyGroupEnabled,
       final boolean isMultitenancyEnabled,
+      final boolean isUnrestrictedEnabled,
       final BesuNodeConfiguration besuConfig,
-      final OrionKeyConfiguration orionConfig) {
-    this.privacyAddress = privacyAddress;
+      final EnclaveKeyConfiguration keyConfig) {
     this.isOnchainPrivacyGroupEnabled = isOnchainPrivacyGroupEnabled;
     this.besuConfig = besuConfig;
-    this.orionConfig = orionConfig;
+    this.keyConfig = keyConfig;
     this.isMultitenancyEnabled = isMultitenancyEnabled;
-  }
-
-  public int getPrivacyAddress() {
-    return privacyAddress;
+    this.isUnrestrictedEnabled = isUnrestrictedEnabled;
   }
 
   public boolean isOnchainPrivacyGroupEnabled() {
@@ -57,11 +51,15 @@ public class PrivacyNodeConfiguration {
     return isMultitenancyEnabled;
   }
 
+  public boolean isUnrestrictedEnabled() {
+    return isUnrestrictedEnabled;
+  }
+
   public BesuNodeConfiguration getBesuConfig() {
     return besuConfig;
   }
 
-  public OrionKeyConfiguration getOrionKeyConfig() {
-    return orionConfig;
+  public EnclaveKeyConfiguration getKeyConfig() {
+    return keyConfig;
   }
 }

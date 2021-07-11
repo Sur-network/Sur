@@ -98,7 +98,7 @@ public class PrivateStateRehydration {
       final PrivateTransactionWithMetadata transactionWithMetadata =
           privateTransactionWithMetadataList.get(j);
       pmtHashToPrivateTransactionMap.put(
-          transactionWithMetadata.getPrivateTransactionMetadata().getPrivacyMarkerTransactionHash(),
+          transactionWithMetadata.getPrivateTransactionMetadata().getPrivateMarkerTransactionHash(),
           transactionWithMetadata.getPrivateTransaction());
     }
 
@@ -117,7 +117,7 @@ public class PrivateStateRehydration {
           privateTransactionWithMetadataList
               .get(i)
               .getPrivateTransactionMetadata()
-              .getPrivacyMarkerTransactionHash();
+              .getPrivateMarkerTransactionHash();
 
       final Optional<TransactionLocation> transactionLocationOfLastPmtInBlock =
           blockchain.getTransactionLocation(lastPmtHash);
@@ -150,8 +150,9 @@ public class PrivateStateRehydration {
       final MutableWorldState publicWorldState =
           blockchain
               .getBlockHeader(blockHeader.getParentHash())
-              .map(BlockHeader::getStateRoot)
-              .flatMap(publicWorldStateArchive::getMutable)
+              .flatMap(
+                  header ->
+                      publicWorldStateArchive.getMutable(header.getStateRoot(), header.getHash()))
               .orElseThrow(RuntimeException::new);
 
       privateGroupRehydrationBlockProcessor.processBlock(
@@ -240,7 +241,7 @@ public class PrivateStateRehydration {
             privateTransactionWithMetadataList
                 .get(index)
                 .getPrivateTransactionMetadata()
-                .getPrivacyMarkerTransactionHash())
+                .getPrivateMarkerTransactionHash())
         .orElseThrow()
         .getBlockHash();
   }

@@ -15,21 +15,26 @@
  */
 package org.hyperledger.besu.ethereum.referencetests;
 
-import org.hyperledger.besu.crypto.SECP256K1.KeyPair;
-import org.hyperledger.besu.crypto.SECP256K1.PrivateKey;
+import org.hyperledger.besu.crypto.KeyPair;
+import org.hyperledger.besu.crypto.SignatureAlgorithm;
+import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
+import org.hyperledger.besu.ethereum.core.AccessListEntry;
 import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Gas;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Wei;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 
@@ -55,7 +60,9 @@ import org.apache.tuweni.bytes.Bytes32;
 public class StateTestVersionedTransaction {
 
   private final long nonce;
-  private final Wei gasPrice;
+  @Nullable private final Wei maxFeePerGas;
+  @Nullable private final Wei maxPriorityFeePerGas;
+  @Nullable private final Wei gasPrice;
   @Nullable private final Address to;
 
   private final KeyPair keys;
@@ -63,36 +70,52 @@ public class StateTestVersionedTransaction {
   private final List<Gas> gasLimits;
   private final List<Wei> values;
   private final List<Bytes> payloads;
+  private final Optional<List<List<AccessListEntry>>> maybeAccessLists;
 
   /**
    * Constructor for populating a mock transaction with json data.
    *
    * @param nonce Nonce of the mock transaction.
-   * @param gasPrice Gas price of the mock transaction.
+   * @param gasPrice Gas price of the mock transaction, if not 1559 transaction.
+   * @param maxFeePerGas Wei fee cap of the mock transaction, if a 1559 transaction.
+   * @param maxPriorityFeePerGas Wei tip cap of the mock transaction, if a 1559 transaction.
    * @param gasLimit Gas Limit of the mock transaction.
    * @param to Recipient account of the mock transaction.
    * @param value Amount of ether transferred in the mock transaction.
    * @param secretKey Secret Key of the mock transaction.
    * @param data Call data of the mock transaction.
+   * @param maybeAccessLists List of access lists of the mock transaction. Can be null.
    */
   @JsonCreator
   public StateTestVersionedTransaction(
       @JsonProperty("nonce") final String nonce,
       @JsonProperty("gasPrice") final String gasPrice,
+      @JsonProperty("maxFeePerGas") final String maxFeePerGas,
+      @JsonProperty("maxPriorityFeePerGas") final String maxPriorityFeePerGas,
       @JsonProperty("gasLimit") final String[] gasLimit,
       @JsonProperty("to") final String to,
       @JsonProperty("value") final String[] value,
       @JsonProperty("secretKey") final String secretKey,
-      @JsonProperty("data") final String[] data) {
+      @JsonProperty("data") final String[] data,
+      @JsonDeserialize(using = StateTestAccessListDeserializer.class) @JsonProperty("accessLists")
+          final List<List<AccessListEntry>> maybeAccessLists) {
 
     this.nonce = Long.decode(nonce);
-    this.gasPrice = Wei.fromHexString(gasPrice);
+    this.gasPrice = Optional.ofNullable(gasPrice).map(Wei::fromHexString).orElse(null);
+    this.maxFeePerGas = Optional.ofNullable(maxFeePerGas).map(Wei::fromHexString).orElse(null);
+    this.maxPriorityFeePerGas =
+        Optional.ofNullable(maxPriorityFeePerGas).map(Wei::fromHexString).orElse(null);
     this.to = to.isEmpty() ? null : Address.fromHexString(to);
-    this.keys = KeyPair.create(PrivateKey.create(Bytes32.fromHexString(secretKey)));
+
+    SignatureAlgorithm signatureAlgorithm = SignatureAlgorithmFactory.getInstance();
+    this.keys =
+        signatureAlgorithm.createKeyPair(
+            signatureAlgorithm.createPrivateKey(Bytes32.fromHexString(secretKey)));
 
     this.gasLimits = parseArray(gasLimit, Gas::fromHexString);
     this.values = parseArray(value, Wei::fromHexString);
     this.payloads = parseArray(data, Bytes::fromHexString);
+    this.maybeAccessLists = Optional.ofNullable(maybeAccessLists);
   }
 
   private static <T> List<T> parseArray(final String[] array, final Function<String, T> parseFct) {
@@ -104,13 +127,26 @@ public class StateTestVersionedTransaction {
   }
 
   public Transaction get(final GeneralStateTestCaseSpec.Indexes indexes) {
-    return Transaction.builder()
-        .nonce(nonce)
-        .gasPrice(gasPrice)
-        .gasLimit(gasLimits.get(indexes.gas).asUInt256().toLong())
-        .to(to)
-        .value(values.get(indexes.value))
-        .payload(payloads.get(indexes.data))
-        .signAndBuild(keys);
+
+    final Transaction.Builder transactionBuilder =
+        Transaction.builder()
+            .nonce(nonce)
+            .gasLimit(gasLimits.get(indexes.gas).asUInt256().toLong())
+            .to(to)
+            .value(values.get(indexes.value))
+            .payload(payloads.get(indexes.data));
+
+    Optional.ofNullable(gasPrice).ifPresent(transactionBuilder::gasPrice);
+    Optional.ofNullable(maxFeePerGas).ifPresent(transactionBuilder::maxFeePerGas);
+    Optional.ofNullable(maxPriorityFeePerGas).ifPresent(transactionBuilder::maxPriorityFeePerGas);
+    maybeAccessLists.ifPresent(
+        accessLists -> transactionBuilder.accessList(accessLists.get(indexes.data)));
+
+    transactionBuilder.guessType();
+    if (transactionBuilder.getTransactionType().requiresChainId()) {
+      transactionBuilder.chainId(BigInteger.ONE);
+    }
+
+    return transactionBuilder.signAndBuild(keys);
   }
 }

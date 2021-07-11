@@ -36,6 +36,7 @@ import org.hyperledger.besu.ethereum.mainnet.precompiles.RIPEMD160PrecompiledCon
 import org.hyperledger.besu.ethereum.mainnet.precompiles.SHA256PrecompiledContract;
 import org.hyperledger.besu.ethereum.mainnet.precompiles.privacy.OnChainPrivacyPrecompiledContract;
 import org.hyperledger.besu.ethereum.mainnet.precompiles.privacy.PrivacyPrecompiledContract;
+import org.hyperledger.besu.ethereum.mainnet.precompiles.privacy.UnrestrictedPrivacyPrecompiledContract;
 import org.hyperledger.besu.ethereum.vm.GasCalculator;
 
 /** Provides the various precompiled contracts used on mainnet hard forks. */
@@ -124,7 +125,7 @@ public abstract class MainnetPrecompiledContractRegistries {
     return registry;
   }
 
-  private static void populateForBerlin(
+  private static void populateForBLS12(
       final PrecompileContractRegistry registry,
       final GasCalculator gasCalculator,
       final int accountVersion) {
@@ -153,10 +154,10 @@ public abstract class MainnetPrecompiledContractRegistries {
         new BLS12MapFp2ToG2PrecompiledContract());
   }
 
-  public static PrecompileContractRegistry berlin(
+  public static PrecompileContractRegistry bls12(
       final PrecompiledContractConfiguration precompiledContractConfiguration) {
     final PrecompileContractRegistry registry = new PrecompileContractRegistry();
-    populateForBerlin(
+    populateForBLS12(
         registry, precompiledContractConfiguration.getGasCalculator(), Account.DEFAULT_VERSION);
     return registry;
   }
@@ -170,7 +171,16 @@ public abstract class MainnetPrecompiledContractRegistries {
       return;
     }
 
-    if (precompiledContractConfiguration.getPrivacyParameters().isOnchainPrivacyGroupsEnabled()) {
+    if (precompiledContractConfiguration.getPrivacyParameters().isUnrestrictedPrivacyEnabled()) {
+      registry.put(
+          Address.UNRESTRICTED_PRIVACY,
+          accountVersion,
+          new UnrestrictedPrivacyPrecompiledContract(
+              precompiledContractConfiguration.getGasCalculator(),
+              precompiledContractConfiguration.getPrivacyParameters()));
+    } else if (precompiledContractConfiguration
+        .getPrivacyParameters()
+        .isOnchainPrivacyGroupsEnabled()) {
       registry.put(
           Address.ONCHAIN_PRIVACY,
           accountVersion,

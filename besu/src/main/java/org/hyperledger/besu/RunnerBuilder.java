@@ -74,7 +74,6 @@ import org.hyperledger.besu.ethereum.p2p.network.NoopP2PNetwork;
 import org.hyperledger.besu.ethereum.p2p.network.P2PNetwork;
 import org.hyperledger.besu.ethereum.p2p.network.ProtocolManager;
 import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeer;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURL;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissionsDenylist;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
@@ -89,6 +88,7 @@ import org.hyperledger.besu.ethereum.permissioning.node.InsufficientPeersPermiss
 import org.hyperledger.besu.ethereum.permissioning.node.NodePermissioningController;
 import org.hyperledger.besu.ethereum.permissioning.node.PeerPermissionsAdapter;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransactionObserver;
+import org.hyperledger.besu.ethereum.storage.StorageProvider;
 import org.hyperledger.besu.ethereum.stratum.StratumServer;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
@@ -106,7 +106,9 @@ import org.hyperledger.besu.nat.kubernetes.KubernetesDetector;
 import org.hyperledger.besu.nat.kubernetes.KubernetesNatManager;
 import org.hyperledger.besu.nat.upnp.UpnpNatManager;
 import org.hyperledger.besu.plugin.BesuPlugin;
+import org.hyperledger.besu.plugin.data.EnodeURL;
 import org.hyperledger.besu.services.BesuPluginContextImpl;
+import org.hyperledger.besu.services.PermissioningServiceImpl;
 import org.hyperledger.besu.util.NetworkUtility;
 
 import java.io.IOException;
@@ -118,7 +120,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -161,12 +165,15 @@ public class RunnerBuilder {
   private Optional<Path> pidPath = Optional.empty();
   private MetricsConfiguration metricsConfiguration;
   private ObservableMetricsSystem metricsSystem;
+  private PermissioningServiceImpl permissioningService;
   private Optional<PermissioningConfiguration> permissioningConfiguration = Optional.empty();
   private Collection<EnodeURL> staticNodes = Collections.emptyList();
   private Optional<String> identityString = Optional.empty();
   private BesuPluginContextImpl besuPluginContext;
   private boolean autoLogBloomCaching = true;
   private boolean randomPeerPriority;
+  private StorageProvider storageProvider;
+  private Supplier<List<Bytes>> forkIdSupplier;
 
   public RunnerBuilder vertx(final Vertx vertx) {
     this.vertx = vertx;
@@ -283,8 +290,8 @@ public class RunnerBuilder {
   }
 
   public RunnerBuilder permissioningConfiguration(
-      final PermissioningConfiguration permissioningConfiguration) {
-    this.permissioningConfiguration = Optional.of(permissioningConfiguration);
+      final Optional<PermissioningConfiguration> permissioningConfiguration) {
+    this.permissioningConfiguration = permissioningConfiguration;
     return this;
   }
 
@@ -313,6 +320,11 @@ public class RunnerBuilder {
     return this;
   }
 
+  public RunnerBuilder permissioningService(final PermissioningServiceImpl permissioningService) {
+    this.permissioningService = permissioningService;
+    return this;
+  }
+
   public RunnerBuilder staticNodes(final Collection<EnodeURL> staticNodes) {
     this.staticNodes = staticNodes;
     return this;
@@ -333,6 +345,16 @@ public class RunnerBuilder {
     return this;
   }
 
+  public RunnerBuilder storageProvider(final StorageProvider storageProvider) {
+    this.storageProvider = storageProvider;
+    return this;
+  }
+
+  public RunnerBuilder forkIdSupplier(final Supplier<List<Bytes>> forkIdSupplier) {
+    this.forkIdSupplier = forkIdSupplier;
+    return this;
+  }
+
   public Runner build() {
 
     Preconditions.checkNotNull(besuController);
@@ -350,6 +372,7 @@ public class RunnerBuilder {
         bootstrap = ethNetworkConfig.getBootNodes();
       }
       discoveryConfiguration.setBootnodes(bootstrap);
+      discoveryConfiguration.setDnsDiscoveryURL(ethNetworkConfig.getDnsDiscoveryUrl());
     } else {
       discoveryConfiguration.setActive(false);
     }
@@ -405,9 +428,9 @@ public class RunnerBuilder {
     LOG.info("Detecting NAT service.");
     final boolean fallbackEnabled = natMethod == NatMethod.AUTO || natMethodFallbackEnabled;
     final NatService natService = new NatService(buildNatManager(natMethod), fallbackEnabled);
-    final NetworkBuilder inactiveNetwork = (caps) -> new NoopP2PNetwork();
+    final NetworkBuilder inactiveNetwork = caps -> new NoopP2PNetwork();
     final NetworkBuilder activeNetwork =
-        (caps) ->
+        caps ->
             DefaultP2PNetwork.builder()
                 .vertx(vertx)
                 .nodeKey(nodeKey)
@@ -417,6 +440,8 @@ public class RunnerBuilder {
                 .supportedCapabilities(caps)
                 .natService(natService)
                 .randomPeerPriority(randomPeerPriority)
+                .storageProvider(storageProvider)
+                .forkIdSupplier(forkIdSupplier)
                 .build();
 
     final NetworkRunner networkRunner =
@@ -428,6 +453,19 @@ public class RunnerBuilder {
             .build();
 
     final P2PNetwork network = networkRunner.getNetwork();
+    // ForkId in Ethereum Node Record needs updating when we transition to a new protocol spec
+    context
+        .getBlockchain()
+        .observeBlockAdded(
+            blockAddedEvent -> {
+              if (protocolSchedule
+                  .streamMilestoneBlocks()
+                  .anyMatch(
+                      blockNumber ->
+                          blockNumber == blockAddedEvent.getBlock().getHeader().getNumber())) {
+                network.updateNodeRecord();
+              }
+            });
     nodePermissioningController.ifPresent(
         n ->
             n.setInsufficientPeersPermissioningProvider(
@@ -472,7 +510,7 @@ public class RunnerBuilder {
       miningCoordinator.addEthHashObserver(stratumServer.get());
     }
 
-    staticNodes.stream()
+    sanitizePeers(network, staticNodes)
         .map(DefaultPeer::fromEnodeURL)
         .forEach(peerNetwork::addMaintainConnectionPeer);
 
@@ -530,7 +568,9 @@ public class RunnerBuilder {
 
     Optional<GraphQLHttpService> graphQLHttpService = Optional.empty();
     if (graphQLConfiguration.isEnabled()) {
-      final GraphQLDataFetchers fetchers = new GraphQLDataFetchers(supportedCapabilities);
+      final GraphQLDataFetchers fetchers =
+          new GraphQLDataFetchers(
+              supportedCapabilities, privacyParameters.getGoQuorumPrivacyParameters());
       final GraphQLDataFetcherContextImpl dataFetcherContext =
           new GraphQLDataFetcherContextImpl(
               blockchainQueries,
@@ -648,6 +688,16 @@ public class RunnerBuilder {
         context.getBlockchain());
   }
 
+  private Stream<EnodeURL> sanitizePeers(
+      final P2PNetwork network, final Collection<EnodeURL> enodeURLS) {
+    if (network.getLocalEnode().isEmpty()) {
+      return enodeURLS.stream();
+    }
+    final EnodeURL localEnodeURL = network.getLocalEnode().get();
+    return enodeURLS.stream()
+        .filter(enodeURL -> !enodeURL.getNodeId().equals(localEnodeURL.getNodeId()));
+  }
+
   private Optional<NodePermissioningController> buildNodePermissioningController(
       final List<EnodeURL> bootnodesAsEnodeURLs,
       final Synchronizer synchronizer,
@@ -667,7 +717,23 @@ public class RunnerBuilder {
                   localNodeId,
                   transactionSimulator,
                   metricsSystem,
-                  blockchain);
+                  blockchain,
+                  permissioningService.getConnectionPermissioningProviders());
+
+      return Optional.of(nodePermissioningController);
+    } else if (permissioningService.getConnectionPermissioningProviders().size() > 0) {
+      final NodePermissioningController nodePermissioningController =
+          new NodePermissioningControllerFactory()
+              .create(
+                  new PermissioningConfiguration(
+                      Optional.empty(), Optional.empty(), Optional.empty()),
+                  synchronizer,
+                  fixedNodes,
+                  localNodeId,
+                  transactionSimulator,
+                  metricsSystem,
+                  blockchain,
+                  permissioningService.getConnectionPermissioningProviders());
 
       return Optional.of(nodePermissioningController);
     } else {

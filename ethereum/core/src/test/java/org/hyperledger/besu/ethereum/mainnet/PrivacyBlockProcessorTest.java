@@ -121,7 +121,6 @@ public class PrivacyBlockProcessorTest {
             any());
   }
 
-  @SuppressWarnings({"rawtypes", "unchecked"})
   @Test
   public void mustPerformRehydration() {
     final BlockDataGenerator blockDataGenerator = new BlockDataGenerator();
@@ -132,27 +131,28 @@ public class PrivacyBlockProcessorTest {
     final Block firstBlock =
         blockDataGenerator.block(
             BlockDataGenerator.BlockOptions.create()
-                .addTransaction(PrivateTransactionDataFixture.privacyMarkerTransactionOnChain()));
+                .addTransaction(PrivateTransactionDataFixture.privateMarkerTransactionOnChain()));
     final Block secondBlock =
         blockDataGenerator.block(
             BlockDataGenerator.BlockOptions.create()
                 .addTransaction(
-                    PrivateTransactionDataFixture.privacyMarkerTransactionOnChainAdd()));
+                    PrivateTransactionDataFixture.privateMarkerTransactionOnChainAdd()));
 
     when(enclave.receive(any()))
         .thenReturn(
             PrivateTransactionDataFixture.generateAddToGroupReceiveResponse(
                 PrivateTransactionDataFixture.privateTransactionBesu(),
-                PrivateTransactionDataFixture.privacyMarkerTransactionOnChain()));
+                PrivateTransactionDataFixture.privateMarkerTransactionOnChain()));
     when(blockchain.getTransactionLocation(any()))
         .thenReturn(Optional.of(new TransactionLocation(firstBlock.getHash(), 0)));
     when(blockchain.getBlockByHash(any())).thenReturn(Optional.of(firstBlock));
     when(blockchain.getBlockHeader(any())).thenReturn(Optional.of(firstBlock.getHeader()));
     final ProtocolSpec protocolSpec = mockProtocolSpec();
     when(protocolSchedule.getByBlockNumber(anyLong())).thenReturn(protocolSpec);
-    when(publicWorldStateArchive.getMutable(any())).thenReturn(Optional.of(mutableWorldState));
+    when(publicWorldStateArchive.getMutable(any(), any()))
+        .thenReturn(Optional.of(mutableWorldState));
     final MutableWorldState mockPrivateStateArchive = mockPrivateStateArchive();
-    when(privateWorldStateArchive.getMutable(any()))
+    when(privateWorldStateArchive.getMutable(any(), any()))
         .thenReturn(Optional.of(mockPrivateStateArchive));
 
     final PrivacyGroupHeadBlockMap expected =
@@ -188,7 +188,6 @@ public class PrivacyBlockProcessorTest {
     return mockPrivateState;
   }
 
-  @SuppressWarnings("rawtypes")
   private ProtocolSpec mockProtocolSpec() {
     final ProtocolSpec protocolSpec = mock(ProtocolSpec.class);
     final MainnetTransactionProcessor mockPublicTransactionProcessor =
@@ -209,7 +208,7 @@ public class PrivacyBlockProcessorTest {
     when(protocolSpec.getPrivateTransactionProcessor()).thenReturn(mockPrivateTransactionProcessor);
     final AbstractBlockProcessor.TransactionReceiptFactory mockTransactionReceiptFactory =
         mock(AbstractBlockProcessor.TransactionReceiptFactory.class);
-    when(mockTransactionReceiptFactory.create(any(), any(), anyLong()))
+    when(mockTransactionReceiptFactory.create(any(), any(), any(), anyLong()))
         .thenReturn(new TransactionReceipt(0, 0, Collections.emptyList(), Optional.empty()));
     when(protocolSpec.getTransactionReceiptFactory()).thenReturn(mockTransactionReceiptFactory);
     when(protocolSpec.getBlockReward()).thenReturn(Wei.ZERO);

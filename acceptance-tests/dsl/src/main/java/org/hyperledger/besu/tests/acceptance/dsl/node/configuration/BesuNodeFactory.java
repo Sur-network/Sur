@@ -17,6 +17,7 @@ package org.hyperledger.besu.tests.acceptance.dsl.node.configuration;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 
+import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.enclave.EnclaveFactory;
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcApi;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -60,6 +62,7 @@ public class BesuNodeFactory {
         config.getPermissioningConfiguration(),
         config.getKeyFilePath(),
         config.isDevMode(),
+        config.getNetwork(),
         config.getGenesisConfigProvider(),
         config.isP2pEnabled(),
         config.getNetworkingConfiguration(),
@@ -73,7 +76,8 @@ public class BesuNodeFactory {
         config.getStaticNodes(),
         config.isDnsEnabled(),
         config.getPrivacyParameters(),
-        config.getRunCommand());
+        config.getRunCommand(),
+        config.getKeyPair());
   }
 
   public BesuNode createMinerNode(final String name) throws IOException {
@@ -342,6 +346,18 @@ public class BesuNodeFactory {
             .build());
   }
 
+  public BesuNode createQbftNode(final String name) throws IOException {
+    return create(
+        new BesuNodeConfigurationBuilder()
+            .name(name)
+            .miningEnabled()
+            .jsonRpcConfiguration(node.createJsonRpcWithQbftEnabledConfig(false))
+            .webSocketConfiguration(node.createWebSocketEnabledConfig())
+            .devMode(false)
+            .genesisConfigProvider(genesis::createQbftGenesisConfig)
+            .build());
+  }
+
   public BesuNode createCustomGenesisNode(
       final String name, final String genesisPath, final boolean canBeBootnode) throws IOException {
     return createCustomGenesisNode(name, genesisPath, canBeBootnode, false);
@@ -404,9 +420,33 @@ public class BesuNodeFactory {
             .build());
   }
 
+  public BesuNode createQbftNodeWithValidators(final String name, final String... validators)
+      throws IOException {
+
+    return create(
+        new BesuNodeConfigurationBuilder()
+            .name(name)
+            .miningEnabled()
+            .jsonRpcConfiguration(node.createJsonRpcWithQbftEnabledConfig(false))
+            .webSocketConfiguration(node.createWebSocketEnabledConfig())
+            .devMode(false)
+            .genesisConfigProvider(
+                nodes ->
+                    node.createGenesisConfigForValidators(
+                        asList(validators), nodes, genesis::createQbftGenesisConfig))
+            .build());
+  }
+
   public BesuNode createNodeWithStaticNodes(final String name, final List<Node> staticNodes)
       throws IOException {
 
+    BesuNodeConfigurationBuilder builder =
+        createConfigurationBuilderWithStaticNodes(name, staticNodes);
+    return create(builder.build());
+  }
+
+  private BesuNodeConfigurationBuilder createConfigurationBuilderWithStaticNodes(
+      final String name, final List<Node> staticNodes) {
     final List<String> staticNodesUrls =
         staticNodes.stream()
             .map(node -> (RunnableNode) node)
@@ -414,15 +454,52 @@ public class BesuNodeFactory {
             .map(URI::toASCIIString)
             .collect(toList());
 
-    return create(
-        new BesuNodeConfigurationBuilder()
-            .name(name)
-            .jsonRpcEnabled()
-            .webSocketEnabled()
-            .discoveryEnabled(false)
-            .staticNodes(staticNodesUrls)
-            .bootnodeEligible(false)
-            .build());
+    return new BesuNodeConfigurationBuilder()
+        .name(name)
+        .jsonRpcEnabled()
+        .webSocketEnabled()
+        .discoveryEnabled(false)
+        .staticNodes(staticNodesUrls)
+        .bootnodeEligible(false);
+  }
+
+  public BesuNode createNodeWithNonDefaultSignatureAlgorithm(
+      final String name, final String genesisPath, final KeyPair keyPair) throws IOException {
+    BesuNodeConfigurationBuilder builder =
+        createNodeConfigurationWithNonDefaultSignatureAlgorithm(
+            name, genesisPath, keyPair, new ArrayList<>());
+    builder.miningEnabled();
+
+    return create(builder.build());
+  }
+
+  public BesuNode createNodeWithNonDefaultSignatureAlgorithm(
+      final String name,
+      final String genesisPath,
+      final KeyPair keyPair,
+      final List<Node> staticNodes)
+      throws IOException {
+    BesuNodeConfigurationBuilder builder =
+        createNodeConfigurationWithNonDefaultSignatureAlgorithm(
+            name, genesisPath, keyPair, staticNodes);
+    return create(builder.build());
+  }
+
+  public BesuNodeConfigurationBuilder createNodeConfigurationWithNonDefaultSignatureAlgorithm(
+      final String name,
+      final String genesisPath,
+      final KeyPair keyPair,
+      final List<Node> staticNodes) {
+    BesuNodeConfigurationBuilder builder =
+        createConfigurationBuilderWithStaticNodes(name, staticNodes);
+
+    final GenesisConfigurationFactory genesis = new GenesisConfigurationFactory();
+    final String genesisData = genesis.readGenesisFile(genesisPath);
+
+    return builder
+        .devMode(false)
+        .genesisConfigProvider((nodes) -> Optional.of(genesisData))
+        .keyPair(keyPair);
   }
 
   public BesuNode runCommand(final String command) throws IOException {

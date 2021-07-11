@@ -16,7 +16,9 @@ package org.hyperledger.besu.ethereum.mainnet.precompiles.privacy;
 
 import static org.hyperledger.besu.ethereum.privacy.PrivateStateRootResolver.EMPTY_ROOT_HASH;
 
-import org.hyperledger.besu.crypto.SECP256K1;
+import org.hyperledger.besu.crypto.SECPSignature;
+import org.hyperledger.besu.crypto.SignatureAlgorithm;
+import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.enclave.Enclave;
 import org.hyperledger.besu.enclave.EnclaveClientException;
 import org.hyperledger.besu.enclave.types.ReceiveResponse;
@@ -30,7 +32,6 @@ import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Wei;
 import org.hyperledger.besu.ethereum.core.WorldUpdater;
-import org.hyperledger.besu.ethereum.debug.TraceOptions;
 import org.hyperledger.besu.ethereum.privacy.PrivateStateRootResolver;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransaction;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransactionEvent;
@@ -44,9 +45,9 @@ import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPInput;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
-import org.hyperledger.besu.ethereum.vm.DebugOperationTracer;
 import org.hyperledger.besu.ethereum.vm.GasCalculator;
 import org.hyperledger.besu.ethereum.vm.MessageFrame;
+import org.hyperledger.besu.ethereum.vm.OperationTracer;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.util.Subscribers;
 
@@ -56,6 +57,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
@@ -64,9 +67,17 @@ import org.apache.tuweni.units.bigints.UInt256;
 
 public class OnChainPrivacyPrecompiledContract extends PrivacyPrecompiledContract {
 
+  private static final Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
+      Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
+
   // Dummy signature for transactions to not fail being processed.
-  private static final SECP256K1.Signature FAKE_SIGNATURE =
-      SECP256K1.Signature.create(SECP256K1.HALF_CURVE_ORDER, SECP256K1.HALF_CURVE_ORDER, (byte) 0);
+  private static final SECPSignature FAKE_SIGNATURE =
+      SIGNATURE_ALGORITHM
+          .get()
+          .createSignature(
+              SIGNATURE_ALGORITHM.get().getHalfCurveOrder(),
+              SIGNATURE_ALGORITHM.get().getHalfCurveOrder(),
+              (byte) 0);
 
   private final Subscribers<PrivateTransactionObserver> privateTransactionEventObservers =
       Subscribers.create();
@@ -147,7 +158,7 @@ public class OnChainPrivacyPrecompiledContract extends PrivacyPrecompiledContrac
         privateStateRootResolver.resolveLastStateRoot(privacyGroupId, privateMetadataUpdater);
 
     final MutableWorldState disposablePrivateState =
-        privateWorldStateArchive.getMutable(lastRootHash).get();
+        privateWorldStateArchive.getMutable(lastRootHash, null).get();
 
     final WorldUpdater privateWorldStateUpdater = disposablePrivateState.updater();
 
@@ -191,7 +202,7 @@ public class OnChainPrivacyPrecompiledContract extends PrivacyPrecompiledContrac
     if (messageFrame.isPersistingPrivateState()) {
 
       privateWorldStateUpdater.commit();
-      disposablePrivateState.persist();
+      disposablePrivateState.persist(null);
 
       storePrivateMetadata(
           pmtHash, privacyGroupId, disposablePrivateState, privateMetadataUpdater, result);
@@ -398,7 +409,7 @@ public class OnChainPrivacyPrecompiledContract extends PrivacyPrecompiledContrac
     // privateTransactionProcessor.processTransaction(...) commits the state if the process was
     // successful before it returns
     final MutableWorldState localMutableState =
-        privateWorldStateArchive.getMutable(disposablePrivateState.rootHash()).get();
+        privateWorldStateArchive.getMutable(disposablePrivateState.rootHash(), null).get();
     final WorldUpdater updater = localMutableState.updater();
 
     return privateTransactionProcessor.processTransaction(
@@ -409,7 +420,7 @@ public class OnChainPrivacyPrecompiledContract extends PrivacyPrecompiledContrac
         messageFrame.getTransactionHash(),
         buildSimulationTransaction(privacyGroupId, privateWorldStateUpdater, methodSignature),
         messageFrame.getMiningBeneficiary(),
-        new DebugOperationTracer(TraceOptions.DEFAULT),
+        OperationTracer.NO_TRACING,
         messageFrame.getBlockHashLookup(),
         privacyGroupId);
   }
@@ -439,7 +450,7 @@ public class OnChainPrivacyPrecompiledContract extends PrivacyPrecompiledContrac
           UInt256.fromBytes(Bytes32.leftPad(Address.DEFAULT_ONCHAIN_PRIVACY_MANAGEMENT)));
 
       privateWorldStateUpdater.commit();
-      disposablePrivateState.persist();
+      disposablePrivateState.persist(null);
     }
   }
 

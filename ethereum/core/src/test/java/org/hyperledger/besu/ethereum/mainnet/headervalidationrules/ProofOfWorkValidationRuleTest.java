@@ -21,8 +21,10 @@ import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.Difficulty;
 import org.hyperledger.besu.ethereum.core.Hash;
-import org.hyperledger.besu.ethereum.mainnet.EthHash;
-import org.hyperledger.besu.ethereum.mainnet.MainnetProtocolSchedule;
+import org.hyperledger.besu.ethereum.core.ProtocolScheduleFixture;
+import org.hyperledger.besu.ethereum.mainnet.EpochCalculator;
+import org.hyperledger.besu.ethereum.mainnet.PoWHasher;
+import org.hyperledger.besu.ethereum.mainnet.PoWSolution;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ScheduleBasedBlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.mainnet.ValidationTestUtils;
@@ -32,8 +34,6 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 
-import org.apache.tuweni.bytes.Bytes;
-import org.apache.tuweni.bytes.Bytes32;
 import org.apache.tuweni.units.bigints.UInt256;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,7 +51,9 @@ public class ProofOfWorkValidationRuleTest {
       throws IOException {
     blockHeader = ValidationTestUtils.readHeader(parentBlockNum);
     parentHeader = ValidationTestUtils.readHeader(blockNum);
-    validationRule = new ProofOfWorkValidationRule(EthHash::epoch);
+    validationRule =
+        new ProofOfWorkValidationRule(
+            new EpochCalculator.DefaultEpochCalculator(), false, PoWHasher.ETHASH_LIGHT);
   }
 
   @Parameters(name = "block {1}")
@@ -89,19 +91,16 @@ public class ProofOfWorkValidationRuleTest {
             .blockHeaderFunctions(mainnetBlockHashFunction())
             .timestamp(1);
     final BlockHeader preHeader = headerBuilder.buildBlockHeader();
-    final byte[] hashBuffer = new byte[64];
     final Hash headerHash = validationRule.hashHeader(preHeader);
-    ProofOfWorkValidationRule.HASHER.hash(
-        hashBuffer,
-        preHeader.getNonce(),
-        preHeader.getNumber(),
-        EthHash::epoch,
-        headerHash.toArray());
 
-    final BlockHeader header =
-        headerBuilder
-            .mixHash(Hash.wrap(Bytes32.leftPad(Bytes.wrap(hashBuffer).slice(0, Bytes32.SIZE))))
-            .buildBlockHeader();
+    PoWSolution solution =
+        PoWHasher.ETHASH_LIGHT.hash(
+            preHeader.getNonce(),
+            preHeader.getNumber(),
+            new EpochCalculator.DefaultEpochCalculator(),
+            headerHash);
+
+    final BlockHeader header = headerBuilder.mixHash(solution.getMixHash()).buildBlockHeader();
 
     assertThat(validationRule.validate(header, parentHeader)).isTrue();
   }
@@ -140,8 +139,61 @@ public class ProofOfWorkValidationRuleTest {
     assertThat(validationRule.validate(header, parentHeader)).isFalse();
   }
 
+  @Test
+  public void failsWithNonEip1559BlockAfterFork() {
+    final ProofOfWorkValidationRule proofOfWorkValidationRule =
+        new ProofOfWorkValidationRule(
+            new EpochCalculator.DefaultEpochCalculator(), true, PoWHasher.ETHASH_LIGHT);
+
+    final BlockHeaderBuilder headerBuilder =
+        BlockHeaderBuilder.fromHeader(blockHeader)
+            .difficulty(Difficulty.ONE)
+            .blockHeaderFunctions(mainnetBlockHashFunction())
+            .timestamp(1);
+    final BlockHeader preHeader = headerBuilder.buildBlockHeader();
+    final Hash headerHash = validationRule.hashHeader(preHeader);
+
+    PoWSolution solution =
+        PoWHasher.ETHASH_LIGHT.hash(
+            preHeader.getNonce(),
+            preHeader.getNumber(),
+            new EpochCalculator.DefaultEpochCalculator(),
+            headerHash);
+
+    final BlockHeader header = headerBuilder.mixHash(solution.getMixHash()).buildBlockHeader();
+
+    assertThat(proofOfWorkValidationRule.validate(header, parentHeader)).isFalse();
+  }
+
+  @Test
+  public void failsWithEip1559BlockBeforeFork() {
+    final ProofOfWorkValidationRule proofOfWorkValidationRule =
+        new ProofOfWorkValidationRule(
+            new EpochCalculator.DefaultEpochCalculator(), false, PoWHasher.ETHASH_LIGHT);
+
+    final BlockHeaderBuilder headerBuilder =
+        BlockHeaderBuilder.fromHeader(blockHeader)
+            .difficulty(Difficulty.ONE)
+            .baseFee(10L)
+            .blockHeaderFunctions(mainnetBlockHashFunction())
+            .timestamp(1);
+    final BlockHeader preHeader = headerBuilder.buildBlockHeader();
+    final Hash headerHash = validationRule.hashHeader(preHeader);
+
+    PoWSolution solution =
+        PoWHasher.ETHASH_LIGHT.hash(
+            preHeader.getNonce(),
+            preHeader.getNumber(),
+            new EpochCalculator.DefaultEpochCalculator(),
+            headerHash);
+
+    final BlockHeader header = headerBuilder.mixHash(solution.getMixHash()).buildBlockHeader();
+
+    assertThat(proofOfWorkValidationRule.validate(header, parentHeader)).isFalse();
+  }
+
   private BlockHeaderFunctions mainnetBlockHashFunction() {
-    final ProtocolSchedule protocolSchedule = MainnetProtocolSchedule.create();
+    final ProtocolSchedule protocolSchedule = ProtocolScheduleFixture.MAINNET;
     return ScheduleBasedBlockHeaderFunctions.create(protocolSchedule);
   }
 }

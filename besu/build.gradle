@@ -29,10 +29,12 @@ jar {
 
 dependencies {
   implementation project(':config')
+  implementation project(':pki')
   implementation project(':consensus:clique')
   implementation project(':consensus:common')
   implementation project(':consensus:ibft')
   implementation project(':consensus:ibftlegacy')
+  implementation project(':consensus:qbft')
   implementation project(':crypto')
   implementation project(':enclave')
   implementation project(':ethereum:api')
@@ -67,7 +69,7 @@ dependencies {
   implementation 'org.apache.tuweni:units'
   implementation 'org.springframework.security:spring-security-crypto'
   implementation 'org.xerial.snappy:snappy-java'
-
+  implementation 'net.consensys.services:quorum-mainnet-launcher'
 
   runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl'
   runtimeOnly 'org.apache.logging.log4j:log4j-jul'
@@ -78,6 +80,7 @@ dependencies {
   testImplementation project(path: ':crypto', configuration: 'testSupportArtifacts')
   testImplementation project(':testutil')
 
+  testImplementation 'tech.pegasys.discovery:discovery'
   testImplementation 'com.google.auto.service:auto-service'
   testImplementation 'com.squareup.okhttp3:okhttp'
   testImplementation 'junit:junit'
@@ -88,21 +91,3 @@ dependencies {
   testImplementation 'org.awaitility:awaitility'
   testImplementation 'org.mockito:mockito-core'
 }
-
-task testJar(type: Jar) {
-  archiveFileName = 'testPlugins.jar'
-  manifest {
-    attributes(
-      'Specification-Title': archiveBaseName,
-      'Specification-Version': project.version,
-      'Implementation-Title': archiveBaseName,
-      'Implementation-Version': calculateVersion()
-      )
-  }
-  archiveClassifier = 'tests'
-  from sourceSets.test.output
-}
-
-configurations { testArtifacts }
-
-artifacts { testArtifacts testJar }

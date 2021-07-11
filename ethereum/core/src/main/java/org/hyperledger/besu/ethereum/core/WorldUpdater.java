@@ -14,6 +14,8 @@
  */
 package org.hyperledger.besu.ethereum.core;
 
+import org.hyperledger.besu.ethereum.vm.MessageFrame;
+
 import java.util.Collection;
 import java.util.Optional;
 
@@ -71,6 +73,17 @@ public interface WorldUpdater extends MutableWorldView {
   }
 
   /**
+   * Retrieves the provided account for a sender of a transaction if it exists, or creates it if it
+   * doesn't.
+   *
+   * @param address the address of the account.
+   * @return the account of the sender for {@code address}
+   */
+  default EvmAccount getOrCreateSenderAccount(final Address address) {
+    return getOrCreate(address);
+  }
+
+  /**
    * Retrieves the provided account, returning a modifiable object (whose updates are accumulated by
    * this updater).
    *
@@ -78,6 +91,17 @@ public interface WorldUpdater extends MutableWorldView {
    * @return the account {@code address}, or {@code null} if the account does not exist.
    */
   EvmAccount getAccount(Address address);
+
+  /**
+   * Retrieves the senders account, returning a modifiable object (whose updates are accumulated by
+   * this updater).
+   *
+   * @param frame the current message frame.
+   * @return the account {@code address}, or {@code null} if the account does not exist.
+   */
+  default EvmAccount getSenderAccount(final MessageFrame frame) {
+    return getAccount(frame.getSenderAddress());
+  }
 
   /**
    * Deletes the provided account.

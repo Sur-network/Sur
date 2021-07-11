@@ -18,7 +18,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.hyperledger.besu.crypto.SECP256K1.Signature;
+import org.hyperledger.besu.crypto.SECPSignature;
+import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
@@ -27,15 +28,17 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionRec
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.api.query.TransactionReceiptWithMetadata;
 import org.hyperledger.besu.ethereum.core.Address;
+import org.hyperledger.besu.ethereum.core.BlockDataGenerator;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.core.fees.TransactionGasBudgetCalculator;
 import org.hyperledger.besu.ethereum.core.fees.TransactionPriceCalculator;
+import org.hyperledger.besu.ethereum.mainnet.PoWHasher;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.plugin.data.TransactionType;
 
 import java.math.BigInteger;
 import java.util.Collections;
@@ -46,14 +49,16 @@ import org.junit.Test;
 
 public class EthGetTransactionReceiptTest {
 
-  private final TransactionReceipt stateReceipt =
+  private final TransactionReceipt statusReceipt =
       new TransactionReceipt(1, 12, Collections.emptyList(), Optional.empty());
   private final Hash stateRoot =
       Hash.fromHexString("0000000000000000000000000000000000000000000000000000000000000000");
   private final TransactionReceipt rootReceipt =
       new TransactionReceipt(stateRoot, 12, Collections.emptyList(), Optional.empty());
 
-  private final Signature signature = Signature.create(BigInteger.ONE, BigInteger.TEN, (byte) 1);
+  private final SECPSignature signature =
+      SignatureAlgorithmFactory.getInstance()
+          .createSignature(BigInteger.ONE, BigInteger.TEN, (byte) 1);
   private final Address sender =
       Address.fromHexString("0x0000000000000000000000000000000000000003");
   private final Transaction transaction =
@@ -65,6 +70,7 @@ public class EthGetTransactionReceiptTest {
           .value(Wei.ZERO)
           .signature(signature)
           .sender(sender)
+          .guessType()
           .build();
 
   private final Hash hash =
@@ -72,10 +78,12 @@ public class EthGetTransactionReceiptTest {
   private final Hash blockHash =
       Hash.fromHexString("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
-  private final TransactionReceiptWithMetadata stateReceiptWithMetaData =
-      TransactionReceiptWithMetadata.create(stateReceipt, transaction, hash, 1, 2, blockHash, 4);
+  private final TransactionReceiptWithMetadata statusReceiptWithMetadata =
+      TransactionReceiptWithMetadata.create(
+          statusReceipt, transaction, hash, 1, 2, Optional.empty(), blockHash, 4);
   private final TransactionReceiptWithMetadata rootReceiptWithMetaData =
-      TransactionReceiptWithMetadata.create(rootReceipt, transaction, hash, 1, 2, blockHash, 4);
+      TransactionReceiptWithMetadata.create(
+          rootReceipt, transaction, hash, 1, 2, Optional.empty(), blockHash, 4);
 
   private final ProtocolSpec rootTransactionTypeSpec =
       new ProtocolSpec(
@@ -100,8 +108,8 @@ public class EthGetTransactionReceiptTest {
           null,
           TransactionPriceCalculator.frontier(),
           Optional.empty(),
-          TransactionGasBudgetCalculator.frontier(),
-          null);
+          null,
+          Optional.of(PoWHasher.ETHASH_LIGHT));
   private final ProtocolSpec statusTransactionTypeSpec =
       new ProtocolSpec(
           "status",
@@ -125,8 +133,8 @@ public class EthGetTransactionReceiptTest {
           null,
           TransactionPriceCalculator.frontier(),
           Optional.empty(),
-          TransactionGasBudgetCalculator.frontier(),
-          null);
+          null,
+          Optional.of(PoWHasher.ETHASH_LIGHT));
 
   @SuppressWarnings("unchecked")
   private final ProtocolSchedule protocolSchedule = mock(ProtocolSchedule.class);
@@ -146,7 +154,7 @@ public class EthGetTransactionReceiptTest {
   public void shouldCreateAStatusTransactionReceiptWhenStatusTypeProtocol() {
     when(blockchain.headBlockNumber()).thenReturn(1L);
     when(blockchain.transactionReceiptByTransactionHash(receiptHash))
-        .thenReturn(Optional.of(stateReceiptWithMetaData));
+        .thenReturn(Optional.of(statusReceiptWithMetadata));
     when(protocolSchedule.getByBlockNumber(1)).thenReturn(statusTransactionTypeSpec);
 
     final JsonRpcSuccessResponse response =
@@ -169,5 +177,31 @@ public class EthGetTransactionReceiptTest {
     final TransactionReceiptRootResult result = (TransactionReceiptRootResult) response.getResult();
 
     assertThat(result.getRoot()).isEqualTo(stateRoot.toString());
+  }
+
+  @Test
+  public void shouldWorkFor1559Txs() {
+    when(blockchain.headBlockNumber()).thenReturn(1L);
+    final Transaction transaction1559 =
+        new BlockDataGenerator().transaction(TransactionType.EIP1559);
+    final long baseFee = 1L;
+    final TransactionReceiptWithMetadata transactionReceiptWithMetadata =
+        TransactionReceiptWithMetadata.create(
+            statusReceipt, transaction1559, hash, 1, 2, Optional.of(baseFee), blockHash, 4);
+    when(blockchain.transactionReceiptByTransactionHash(receiptHash))
+        .thenReturn(Optional.of(transactionReceiptWithMetadata));
+    when(protocolSchedule.getByBlockNumber(1)).thenReturn(rootTransactionTypeSpec);
+
+    final JsonRpcSuccessResponse response =
+        (JsonRpcSuccessResponse) ethGetTransactionReceipt.response(request);
+    final TransactionReceiptStatusResult result =
+        (TransactionReceiptStatusResult) response.getResult();
+
+    assertThat(result.getStatus()).isEqualTo("0x1");
+    assertThat(Long.decode(result.getEffectiveGasPrice()))
+        .isEqualTo(
+            Math.min(
+                baseFee + transaction1559.getMaxPriorityFeePerGas().get().toLong(),
+                transaction1559.getMaxFeePerGas().get().toLong()));
   }
 }

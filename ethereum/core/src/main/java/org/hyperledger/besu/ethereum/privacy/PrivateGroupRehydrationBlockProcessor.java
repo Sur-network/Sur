@@ -121,7 +121,7 @@ public class PrivateGroupRehydrationBlockProcessor {
             privateStateRootResolver.resolveLastStateRoot(privacyGroupId, metadataUpdater);
 
         final MutableWorldState disposablePrivateState =
-            privateWorldStateArchive.getMutable(lastRootHash).get();
+            privateWorldStateArchive.getMutable(lastRootHash, null).get();
         final WorldUpdater privateStateUpdater = disposablePrivateState.updater();
         maybeInjectDefaultManagementAndProxy(
             lastRootHash, disposablePrivateState, privateStateUpdater);
@@ -144,7 +144,7 @@ public class PrivateGroupRehydrationBlockProcessor {
                 privateTransaction.getPrivacyGroupId().get());
 
         privateStateUpdater.commit();
-        disposablePrivateState.persist();
+        disposablePrivateState.persist(null);
 
         storePrivateMetadata(
             transactionHash,
@@ -174,7 +174,7 @@ public class PrivateGroupRehydrationBlockProcessor {
 
       gasUsed = transaction.getGasLimit() - result.getGasRemaining() + gasUsed;
       final TransactionReceipt transactionReceipt =
-          transactionReceiptFactory.create(result, worldState, gasUsed);
+          transactionReceiptFactory.create(transaction.getType(), result, worldState, gasUsed);
       receipts.add(transactionReceipt);
     }
 
@@ -233,7 +233,7 @@ public class PrivateGroupRehydrationBlockProcessor {
           UInt256.fromBytes(Bytes32.leftPad(Address.DEFAULT_ONCHAIN_PRIVACY_MANAGEMENT)));
 
       privateWorldStateUpdater.commit();
-      disposablePrivateState.persist();
+      disposablePrivateState.persist(null);
     }
   }
 

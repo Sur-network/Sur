@@ -19,9 +19,11 @@ public enum NetworkName {
   RINKEBY,
   ROPSTEN,
   GOERLI,
+  CALAVERAS,
   DEV,
   CLASSIC,
   KOTTI,
   MORDOR,
-  YOLO_V2
+  ECIP1049_DEV,
+  ASTOR
 }

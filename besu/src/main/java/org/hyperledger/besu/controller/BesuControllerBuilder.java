@@ -18,13 +18,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.hyperledger.besu.config.GenesisConfigFile;
 import org.hyperledger.besu.config.GenesisConfigOptions;
-import org.hyperledger.besu.config.experimental.ExperimentalEIPs;
 import org.hyperledger.besu.crypto.NodeKey;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.methods.JsonRpcMethods;
 import org.hyperledger.besu.ethereum.blockcreation.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
+import org.hyperledger.besu.ethereum.bonsai.BonsaiWorldStateArchive;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
+import org.hyperledger.besu.ethereum.chain.BlockchainStorage;
+import org.hyperledger.besu.ethereum.chain.DefaultBlockchain;
 import org.hyperledger.besu.ethereum.chain.GenesisState;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Hash;
@@ -53,6 +55,9 @@ import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolFactory;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.p2p.config.SubProtocolConfiguration;
 import org.hyperledger.besu.ethereum.storage.StorageProvider;
+import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueSegmentIdentifier;
+import org.hyperledger.besu.ethereum.worldstate.DataStorageConfiguration;
+import org.hyperledger.besu.ethereum.worldstate.DataStorageFormat;
 import org.hyperledger.besu.ethereum.worldstate.DefaultWorldStateArchive;
 import org.hyperledger.besu.ethereum.worldstate.MarkSweepPruner;
 import org.hyperledger.besu.ethereum.worldstate.Pruner;
@@ -61,6 +66,7 @@ import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.ethereum.worldstate.WorldStatePreimageStorage;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateStorage;
 import org.hyperledger.besu.metrics.ObservableMetricsSystem;
+import org.hyperledger.besu.plugin.services.permissioning.NodeMessagePermissioningProvider;
 
 import java.io.Closeable;
 import java.math.BigInteger;
@@ -98,6 +104,10 @@ public abstract class BesuControllerBuilder {
   Map<String, String> genesisConfigOverrides;
   private Map<Long, Hash> requiredBlocks = Collections.emptyMap();
   private long reorgLoggingThreshold;
+  private DataStorageConfiguration dataStorageConfiguration =
+      DataStorageConfiguration.DEFAULT_CONFIG;
+  private List<NodeMessagePermissioningProvider> messagePermissioningProviders =
+      Collections.emptyList();
 
   public BesuControllerBuilder storageProvider(final StorageProvider storageProvider) {
     this.storageProvider = storageProvider;
@@ -128,6 +138,12 @@ public abstract class BesuControllerBuilder {
 
   public BesuControllerBuilder miningParameters(final MiningParameters miningParameters) {
     this.miningParameters = miningParameters;
+    return this;
+  }
+
+  public BesuControllerBuilder messagePermissioningProviders(
+      final List<NodeMessagePermissioningProvider> messagePermissioningProviders) {
+    this.messagePermissioningProviders = messagePermissioningProviders;
     return this;
   }
 
@@ -198,6 +214,12 @@ public abstract class BesuControllerBuilder {
     return this;
   }
 
+  public BesuControllerBuilder dataStorageConfiguration(
+      final DataStorageConfiguration dataStorageConfiguration) {
+    this.dataStorageConfiguration = dataStorageConfiguration;
+    return this;
+  }
+
   public BesuController build() {
     checkNotNull(genesisConfig, "Missing genesis config");
     checkNotNull(syncConfig, "Missing sync config");
@@ -217,29 +239,34 @@ public abstract class BesuControllerBuilder {
 
     final ProtocolSchedule protocolSchedule = createProtocolSchedule();
     final GenesisState genesisState = GenesisState.fromConfig(genesisConfig, protocolSchedule);
-    final WorldStateStorage worldStateStorage = storageProvider.createWorldStateStorage();
-    final WorldStateArchive worldStateArchive = createWorldStateArchive(worldStateStorage);
+    final WorldStateStorage worldStateStorage =
+        storageProvider.createWorldStateStorage(dataStorageConfiguration.getDataStorageFormat());
+
+    final BlockchainStorage blockchainStorage =
+        storageProvider.createBlockchainStorage(protocolSchedule);
+
+    final MutableBlockchain blockchain =
+        DefaultBlockchain.createMutable(
+            genesisState.getBlock(), blockchainStorage, metricsSystem, reorgLoggingThreshold);
+
+    final WorldStateArchive worldStateArchive =
+        createWorldStateArchive(worldStateStorage, blockchain);
     final ProtocolContext protocolContext =
         ProtocolContext.init(
-            storageProvider,
-            worldStateArchive,
-            genesisState,
-            protocolSchedule,
-            metricsSystem,
-            this::createConsensusContext,
-            reorgLoggingThreshold);
+            blockchain, worldStateArchive, genesisState, this::createConsensusContext);
     validateContext(protocolContext);
 
     protocolSchedule.setPublicWorldStateArchiveForPrivacyBlockProcessor(
         protocolContext.getWorldStateArchive());
-
-    final MutableBlockchain blockchain = protocolContext.getBlockchain();
 
     Optional<Pruner> maybePruner = Optional.empty();
     if (isPruningEnabled) {
       if (!storageProvider.isWorldStateIterable()) {
         LOG.warn(
             "Cannot enable pruning with current database version. Disabling. Resync to get the latest database version or disable pruning explicitly on the command line to remove this warning.");
+      } else if (dataStorageConfiguration.getDataStorageFormat().equals(DataStorageFormat.BONSAI)) {
+        LOG.warn(
+            "Cannot enable pruning with Bonsai data storage format. Disabling. Change the data storage format or disable pruning explicitly on the command line to remove this warning.");
       } else {
         maybePruner =
             Optional.of(
@@ -247,13 +274,16 @@ public abstract class BesuControllerBuilder {
                     new MarkSweepPruner(
                         ((DefaultWorldStateArchive) worldStateArchive).getWorldStateStorage(),
                         blockchain,
-                        storageProvider.createPruningStorage(),
+                        storageProvider.getStorageBySegmentIdentifier(
+                            KeyValueSegmentIdentifier.PRUNING_STATE),
                         metricsSystem),
                     blockchain,
                     prunerConfiguration));
       }
     }
-    final EthPeers ethPeers = new EthPeers(getSupportedProtocol(), clock, metricsSystem);
+    final EthPeers ethPeers =
+        new EthPeers(getSupportedProtocol(), clock, metricsSystem, messagePermissioningProviders);
+
     final EthMessages ethMessages = new EthMessages();
     final EthScheduler scheduler =
         new EthScheduler(
@@ -268,8 +298,7 @@ public abstract class BesuControllerBuilder {
     final Optional<EIP1559> eip1559;
     final GenesisConfigOptions genesisConfigOptions =
         genesisConfig.getConfigOptions(genesisConfigOverrides);
-    if (ExperimentalEIPs.eip1559Enabled
-        && genesisConfigOptions.getEIP1559BlockNumber().isPresent()) {
+    if (genesisConfigOptions.getEIP1559BlockNumber().isPresent()) {
       eip1559 = Optional.of(new EIP1559(genesisConfigOptions.getEIP1559BlockNumber().getAsLong()));
     } else {
       eip1559 = Optional.empty();
@@ -284,7 +313,6 @@ public abstract class BesuControllerBuilder {
             syncState,
             miningParameters.getMinTransactionGasPrice(),
             transactionPoolConfiguration,
-            ethereumWireProtocolConfiguration.isEth65Enabled(),
             eip1559);
 
     final EthProtocolManager ethProtocolManager =
@@ -411,10 +439,18 @@ public abstract class BesuControllerBuilder {
         genesisConfig.getForks());
   }
 
-  public WorldStateArchive createWorldStateArchive(final WorldStateStorage worldStateStorage) {
-    final WorldStatePreimageStorage preimageStorage =
-        storageProvider.createWorldStatePreimageStorage();
-    return new DefaultWorldStateArchive(worldStateStorage, preimageStorage);
+  private WorldStateArchive createWorldStateArchive(
+      final WorldStateStorage worldStateStorage, final Blockchain blockchain) {
+    switch (dataStorageConfiguration.getDataStorageFormat()) {
+      case BONSAI:
+        return new BonsaiWorldStateArchive(
+            storageProvider, blockchain, dataStorageConfiguration.getBonsaiMaxLayersToLoad());
+      case FOREST:
+      default:
+        final WorldStatePreimageStorage preimageStorage =
+            storageProvider.createWorldStatePreimageStorage();
+        return new DefaultWorldStateArchive(worldStateStorage, preimageStorage);
+    }
   }
 
   private List<PeerValidator> createPeerValidators(final ProtocolSchedule protocolSchedule) {

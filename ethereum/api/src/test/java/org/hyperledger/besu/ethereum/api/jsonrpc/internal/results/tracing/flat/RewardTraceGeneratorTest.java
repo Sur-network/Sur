@@ -25,7 +25,6 @@ import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockDataGenerator;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.core.fees.TransactionGasBudgetCalculator;
 import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ClassicBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockProcessor;
@@ -36,6 +35,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -92,7 +92,7 @@ public class RewardTraceGeneratorTest {
             blockReward,
             BlockHeader::getCoinbase,
             true,
-            TransactionGasBudgetCalculator.frontier());
+            Optional.empty());
     when(protocolSpec.getBlockProcessor()).thenReturn(blockProcessor);
 
     final Stream<Trace> traceStream =

@@ -115,7 +115,8 @@ public class MainnetBlockValidatorTest {
             eq(protocolContext),
             eq(HeaderValidationMode.DETACHED_ONLY)))
         .thenReturn(true);
-    when(worldStateArchive.getMutable(any(Hash.class))).thenReturn(Optional.empty());
+    when(worldStateArchive.getMutable(any(Hash.class), any(Hash.class)))
+        .thenReturn(Optional.empty());
 
     assertThat(badBlockManager.getBadBlocks().size()).isEqualTo(0);
     mainnetBlockValidator.validateAndProcessBlock(
@@ -136,7 +137,7 @@ public class MainnetBlockValidatorTest {
             eq(protocolContext),
             eq(HeaderValidationMode.DETACHED_ONLY)))
         .thenReturn(true);
-    when(worldStateArchive.getMutable(any(Hash.class)))
+    when(worldStateArchive.getMutable(any(Hash.class), any(Hash.class)))
         .thenReturn(Optional.of(mock(MutableWorldState.class)));
     when(blockProcessor.processBlock(eq(blockchain), any(MutableWorldState.class), eq(badBlock)))
         .thenReturn(
@@ -144,6 +145,12 @@ public class MainnetBlockValidatorTest {
               @SuppressWarnings("unchecked")
               @Override
               public List<TransactionReceipt> getReceipts() {
+                return Collections.EMPTY_LIST;
+              }
+
+              @SuppressWarnings("unchecked")
+              @Override
+              public List<TransactionReceipt> getPrivateReceipts() {
                 return Collections.EMPTY_LIST;
               }
 
@@ -171,7 +178,7 @@ public class MainnetBlockValidatorTest {
             eq(protocolContext),
             eq(HeaderValidationMode.DETACHED_ONLY)))
         .thenReturn(true);
-    when(worldStateArchive.getMutable(any(Hash.class)))
+    when(worldStateArchive.getMutable(any(Hash.class), any(Hash.class)))
         .thenReturn(Optional.of(mock(MutableWorldState.class)));
     when(blockProcessor.processBlock(eq(blockchain), any(MutableWorldState.class), eq(badBlock)))
         .thenReturn(
@@ -179,6 +186,12 @@ public class MainnetBlockValidatorTest {
               @SuppressWarnings("unchecked")
               @Override
               public List<TransactionReceipt> getReceipts() {
+                return Collections.EMPTY_LIST;
+              }
+
+              @SuppressWarnings("unchecked")
+              @Override
+              public List<TransactionReceipt> getPrivateReceipts() {
                 return Collections.EMPTY_LIST;
               }
 
@@ -206,7 +219,7 @@ public class MainnetBlockValidatorTest {
             eq(protocolContext),
             eq(HeaderValidationMode.DETACHED_ONLY)))
         .thenReturn(true);
-    when(worldStateArchive.getMutable(any(Hash.class)))
+    when(worldStateArchive.getMutable(any(Hash.class), any(Hash.class)))
         .thenReturn(Optional.of(mock(MutableWorldState.class)));
     when(blockProcessor.processBlock(eq(blockchain), any(MutableWorldState.class), eq(badBlock)))
         .thenReturn(
@@ -214,6 +227,12 @@ public class MainnetBlockValidatorTest {
               @SuppressWarnings("unchecked")
               @Override
               public List<TransactionReceipt> getReceipts() {
+                return Collections.EMPTY_LIST;
+              }
+
+              @SuppressWarnings("unchecked")
+              @Override
+              public List<TransactionReceipt> getPrivateReceipts() {
                 return Collections.EMPTY_LIST;
               }
 

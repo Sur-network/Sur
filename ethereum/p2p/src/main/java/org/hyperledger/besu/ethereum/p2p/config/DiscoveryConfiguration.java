@@ -16,7 +16,8 @@ package org.hyperledger.besu.ethereum.p2p.config;
 
 import static java.util.stream.Collectors.toList;
 
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURL;
+import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.plugin.data.EnodeURL;
 import org.hyperledger.besu.util.NetworkUtility;
 
 import java.util.ArrayList;
@@ -27,7 +28,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DiscoveryConfiguration {
-  public static List<EnodeURL> MAINNET_BOOTSTRAP_NODES =
+  public static final String GOERLI_DISCOVERY_URL =
+      "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.goerli.ethdisco.net";
+  public static final String MAINNET_DISCOVERY_URL =
+      "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.mainnet.ethdisco.net";
+  public static final String RINKEBY_DISCOVERY_URL =
+      "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.rinkeby.ethdisco.net";
+  public static final String ROPSTEN_DISCOVERY_URL =
+      "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.ropsten.ethdisco.net";
+
+  public static final List<EnodeURL> MAINNET_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                    //"enode://e63e469d4219e993f84837b117df3950e7d8a6bbe51fc99dd9d0ee04563f66efc61d480f8f4433c96f7bdc137d8e9f2263bffabdd4ccb36fc745fe9c569e5b24@127.0.0.1:30303"
@@ -58,27 +68,27 @@ public class DiscoveryConfiguration {
                   // Ethereum Foundation Aleth Bootnodes
                   "enode://979b7fa28feeb35a4741660a16076f1943202cb72b6af70d327f053e248bab9ba81760f39d0701ef1d8f89cc1fbd2cacba0710a12cd5314d5e0c9021aa3637f9@5.1.83.226:30303" // DE
                   )
-              .map(EnodeURL::fromString)
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
-  public static List<EnodeURL> RINKEBY_BOOTSTRAP_NODES =
+  public static final List<EnodeURL> RINKEBY_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   "enode://a24ac7c5484ef4ed0c5eb2d36620ba4e4aa13b8c84684e1b4aab0cebea2ae45cb4d375b77eab56516d34bfbd3c1a833fc51296ff084b770b94fb9028c4d25ccf@52.169.42.101:30303",
                   "enode://343149e4feefa15d882d9fe4ac7d88f885bd05ebb735e547f12e12080a9fa07c8014ca6fd7f373123488102fe5e34111f8509cf0b7de3f5b44339c9f25e87cb8@52.3.158.184:30303",
                   "enode://b6b28890b006743680c52e64e0d16db57f28124885595fa03a562be1d2bf0f3a1da297d56b13da25fb992888fd556d4c1a27b1f39d531bde7de1921c90061cc6@159.89.28.211:30303")
-              .map(EnodeURL::fromString)
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
-  public static List<EnodeURL> ROPSTEN_BOOTSTRAP_NODES =
+  public static final List<EnodeURL> ROPSTEN_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   "enode://6332792c4a00e3e4ee0926ed89e0d27ef985424d97b6a45bf0f23e51f0dcb5e66b875777506458aea7af6f9e4ffb69f43f3778ee73c81ed9d34c51c4b16b0b0f@52.232.243.152:30303",
                   "enode://94c15d1b9e2fe7ce56e458b9a3b672ef11894ddedd0c6f247e0f1d3487f52b66208fb4aeb8179fce6e3a749ea93ed147c37976d67af557508d199d9594c35f09@192.81.208.223:30303",
                   "enode://30b7ab30a01c124a6cceca36863ece12c4f5fa68e3ba9b0b51407ccc002eeed3b3102d20a88f1c1d3c3154e2449317b8ef95090e77b312d5cc39354f86d5d606@52.176.7.10:30303",
                   "enode://865a63255b3bb68023b6bffd5095118fcc13e79dcf014fe4e47e065c350c7cc72af2e53eff895f11ba1bbb6a2b33271c1116ee870f266618eadfc2e78aa7349c@52.176.100.77:30303")
-              .map(EnodeURL::fromString)
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
 
-  public static List<EnodeURL> GOERLI_BOOTSTRAP_NODES =
+  public static final List<EnodeURL> GOERLI_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   "enode://011f758e6552d105183b1761c5e2dea0111bc20fd5f6422bc7f91e0fabbec9a6595caf6239b37feb773dddd3f87240d99d859431891e4a642cf2a0a9e6cbb98a@51.141.78.53:30303",
@@ -94,12 +104,44 @@ public class DiscoveryConfiguration {
                   "enode://807b37ee4816ecf407e9112224494b74dd5933625f655962d892f2f0f02d7fbbb3e2a94cf87a96609526f30c998fd71e93e2f53015c558ffc8b03eceaf30ee33@51.15.119.157:30303", // @q9f Uklun
                   "enode://a59e33ccd2b3e52d578f1fbd70c6f9babda2650f0760d6ff3b37742fdcdfdb3defba5d56d315b40c46b70198c7621e63ffa3f987389c7118634b0fefbbdfa7fd@51.15.119.157:40303" // @q9f Uklun
                   )
-              .map(EnodeURL::fromString)
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
 
-  public static List<EnodeURL> CLASSIC_BOOTSTRAP_NODES =
+  public static final List<EnodeURL> CALAVERAS_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
+                  "enode://9e1096aa59862a6f164994cb5cb16f5124d6c992cdbf4535ff7dea43ea1512afe5448dca9df1b7ab0726129603f1a3336b631e4d7a1a44c94daddd03241587f9@3.9.20.133:30303")
+              .map(EnodeURLImpl::fromString)
+              .collect(toList()));
+
+  public static final List<EnodeURL> CLASSIC_BOOTSTRAP_NODES =
+      Collections.unmodifiableList(
+          Stream.of(
+                  // ETC Cooperative
+                  "enode://8e73168affd8d445edda09c561d607081ca5d7963317caae2702f701eb6546b06948b7f8687a795de576f6a5f33c44828e25a90aa63de18db380a11e660dd06f@159.203.37.80:30303",
+                  "enode://1d9aef3350a712ca90cabdf7b94a6f29e7df390c083d39d739c58cdba8708c4fbeb7784e2c8ae7a9086141e31c7df193c5a247d40264d040e6ac02d316c2fcfb@67.207.93.100:30303",
+                  "enode://506e4f07e736a6415aac813d5f2365f6359a9877844b02799819d185571908188c8ddd855897c814583f5f36f30e5cb76472e13108e6ecb0fc1901d71f0df8e2@128.199.160.131:30303",
+                  "enode://84e70a981a436efd7d6ae80b5d7ecb82636de77029635a2fb25ccf5d02106172d1cafdd7d8171a136d3fd545e5df94f4d63299eda7f8aec79967aa568ddaa71e@165.22.202.207:30303",
+                  "enode://6ec7ac618a7147d8b0e41bc1e63080abfd56a48f50f06095c112e30f72cd5eee262b06aa168cb46ab470d56885f842a1ae44a3714bfb029ced83dab461852062@164.90.218.200:30303",
+                  "enode://feba6c4bd757efce4fec0fa5775780d2c209e86231553a72738c2c4e95d0cfd7ac2189f6d30d3c059dd25d93ea060ca28f9936b564f7d04c4270bb60e8e1487b@178.128.171.230:30303",
+                  "enode://c0b698f9fb1c5dd3b348c46dffbc524cebbfa48fd03c52523892d43d31d5fabacf4e27f215f5647c96190567975e423a5708cbdcd6441da2705bd85533e78eca@209.97.136.89:30303",
+                  "enode://37b20dc1ca0ba428dc07f4bf87c548aa57b53e6883c607a041c88cc0f72c27ef3487b0e94f50e787fff8af5e2baf029cd6105461aa8ec250ccae93d6972107a9@134.209.30.110:30303",
+
+                  // ETC Labs
+                  "enode://66498ac935f3f54d873de4719bf2d6d61e0c74dd173b547531325bcef331480f9bedece91099810971c8567eeb1ae9f6954b013c47c6dc51355bbbbae65a8c16@54.148.165.1:30303",
+                  "enode://73e74ce7426a17aa2d8b5bb64d796ec7dc4dcee2af9bbdd4434394d1e4e52e650b9e39202435fca29ce65c242fd6e59b93ed2cf37f04b645fb23e306273816ad@54.148.165.1:30304",
+                  "enode://f1d4bde4cc8df2b8ce46194247450e54b9ba9e69410a30974a894a49273b10c069e7a1ff0ffd4921cb23af9f903d8257ed0133317850e670f2792f20e771a69e@123.57.29.99:30303",
+                  "enode://7a7768a1603b6714acd16f646b84a5aff418869b5715fa606172d19e4e7d719699448b7707e30c7b59470b4fb8b38a020135641304861483a7dc3ba988e98490@47.108.52.30:30303",
+                  "enode://903fceb08534c13fe1114b0c753a89c6c2ec50f973a85d308456c46721f8904b1cd47df9231114299be84e1e954db06552f791a0facbd86359aa9fd321d2ef50@47.240.106.205:30303",
+                  "enode://c7ec057ad9450d2d5c4002e49e53e1d90142acd54128c89e794d11401de026b91aa0e84e3f679fb6b47f7940e08b5e7d21d8178c5fa6ba0f36971098cb566ea6@101.133.229.66:30303",
+                  "enode://70b74fef51aa4f36330cc52ac04f16d38e1838f531f58bbc88365ca5fd4a3da6e8ec32316c43f79b157d0575faf53064fd925644d0f620b2b201b028c2b410d0@47.115.150.90:30303",
+                  "enode://fa64d1fcb2d4cd1d1606cb940ea2b69fee7dc6c7a85ac4ad05154df1e9ae9616a6a0fa67a59cb15f79346408efa5a4efeba1e5993ddbf4b5cedbda27644a61cf@47.91.30.48:30303",
+
+                  // @q9f ceibo
+                  "enode://942bf2f0754972391467765be1d98206926fc8ad0be8a49cd65e1730420c37fa63355bddb0ae5faa1d3505a2edcf8fad1cf00f3c179e244f047ec3a3ba5dacd7@176.9.51.216:30355",
+                  "enode://0b0e09d6756b672ac6a8b70895da4fb25090b939578935d4a897497ffaa205e019e068e1ae24ac10d52fa9b8ddb82840d5d990534201a4ad859ee12cb5c91e82@176.9.51.216:30365",
+
+                  // @whilei
                   "enode://158ac5a4817265d0d8b977660b3dbe9abee5694ed212f7091cbf784ddf47623ed015e1cb54594d10c1c46118747ddabe86ebf569cf24ae91f2daa0f1adaae390@159.203.56.33:30303",
                   "enode://efd48ad0879eeb7f9cb5e50f33f7bc21e805a72e90361f145baaa22dd75d111e7cd9c93f1b7060dcb30aa1b3e620269336dbf32339fea4c18925a4c15fe642df@18.205.66.229:30303",
                   "enode://5fbfb426fbb46f8b8c1bd3dd140f5b511da558cd37d60844b525909ab82e13a25ee722293c829e52cb65c2305b1637fa9a2ea4d6634a224d5f400bfe244ac0de@162.243.55.45:30303",
@@ -112,17 +154,11 @@ public class DiscoveryConfiguration {
                   "enode://83b33409349ffa25e150555f7b4f8deebc68f3d34d782129dc3c8ba07b880c209310a4191e1725f2f6bef59bce9452d821111eaa786deab08a7e6551fca41f4f@206.189.68.191:30303",
                   "enode://0daae2a30f2c73b0b257746587136efb8e3479496f7ea1e943eeb9a663b72dd04582f699f7010ee02c57fc45d1f09568c20a9050ff937f9139e2973ddd98b87b@159.89.169.103:30303",
                   "enode://50808461dd73b3d70537e4c1e5fafd1132b3a90f998399af9205f8889987d62096d4e853813562dd43e7270a71c9d9d4e4dd73a534fdb22fbac98c389c1a7362@178.128.55.119:30303",
-                  "enode://5cd218959f8263bc3721d7789070806b0adff1a0ed3f95ec886fb469f9362c7507e3b32b256550b9a7964a23a938e8d42d45a0c34b332bfebc54b29081e83b93@35.187.57.94:30303",
-                  "enode://66498ac935f3f54d873de4719bf2d6d61e0c74dd173b547531325bcef331480f9bedece91099810971c8567eeb1ae9f6954b013c47c6dc51355bbbbae65a8c16@54.148.165.1:30303",
-                  "enode://73e74ce7426a17aa2d8b5bb64d796ec7dc4dcee2af9bbdd4434394d1e4e52e650b9e39202435fca29ce65c242fd6e59b93ed2cf37f04b645fb23e306273816ad@54.148.165.1:30304",
-                  "enode://8809dadb6e6145bbbce832f8e3cb54f23c84db1c4957dac04be26157a16eceb91bb2567e3a2eb794bf8e7df937fd2de46d4214416d3c199f05d3b6fa76a5ef6d@51.141.115.3:30303",
-                  "enode://942bf2f0754972391467765be1d98206926fc8ad0be8a49cd65e1730420c37fa63355bddb0ae5faa1d3505a2edcf8fad1cf00f3c179e244f047ec3a3ba5dacd7@176.9.51.216:30355", // @q9f Ceibo
-                  "enode://0b0e09d6756b672ac6a8b70895da4fb25090b939578935d4a897497ffaa205e019e068e1ae24ac10d52fa9b8ddb82840d5d990534201a4ad859ee12cb5c91e82@176.9.51.216:30365" // @q9f Ceibo
-                  )
-              .map(EnodeURL::fromString)
+                  "enode://5cd218959f8263bc3721d7789070806b0adff1a0ed3f95ec886fb469f9362c7507e3b32b256550b9a7964a23a938e8d42d45a0c34b332bfebc54b29081e83b93@35.187.57.94:30303")
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
 
-  public static List<EnodeURL> KOTTI_BOOTSTRAP_NODES =
+  public static final List<EnodeURL> KOTTI_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   // Authority Nodes
@@ -139,10 +175,10 @@ public class DiscoveryConfiguration {
                   "enode://efd7391a3bed73ad74ae5760319bb48f9c9f1983ff22964422688cdb426c5d681004ece26c47121396653cf9bafe7104aa4ecff70e24cc5b11fd76be8e5afce0@51.158.191.43:45678", // @q9f Mizar
                   "enode://93b12383c74c39b67afa99a7ff44ce250fe94295fa1fc087465cc4fe2d0b33b91a8d8cabe03b250104a9096aa0e06bcde5f95665a5bd9f890edd2ab33e16ae47@51.15.41.19:30303" // @q9f Zibal
                   )
-              .map(EnodeURL::fromString)
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
 
-  public static List<EnodeURL> MORDOR_BOOTSTRAP_NODES =
+  public static final List<EnodeURL> MORDOR_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   "enode://642cf9650dd8869d42525dbf6858012e3b4d64f475e733847ab6f7742341a4397414865d953874e8f5ed91b0e4e1c533dee14ad1d6bb276a5459b2471460ff0d@157.230.152.87:30303", // @meowbits Mordor
@@ -174,14 +210,14 @@ public class DiscoveryConfiguration {
                   "enode://8fa15f5012ac3c47619147220b7772fcc5db0cb7fd132b5d196e7ccacb166ac1fcf83be1dace6cd288e288a85e032423b6e7e9e57f479fe7373edea045caa56b@176.9.51.216:31355", // @q9f Ceibo
                   "enode://34c14141b79652afc334dcd2ba4d8047946246b2310dc8e45737ebe3e6f15f9279ca4702b90bc5be12929f6194e2c3ce19a837b7fec7ebffcee9e9fe4693b504@176.9.51.216:31365" // @q9f Ceibo
                   )
-              .map(EnodeURL::fromString)
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
 
-  public static List<EnodeURL> YOLO_V2_BOOTSTRAP_NODES =
+  public static final List<EnodeURL> ASTOR_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
-          Stream.<String>of(
-                  "enode://9e1096aa59862a6f164994cb5cb16f5124d6c992cdbf4535ff7dea43ea1512afe5448dca9df1b7ab0726129603f1a3336b631e4d7a1a44c94daddd03241587f9@3.9.20.133:30303")
-              .map(EnodeURL::fromString)
+          Stream.of(
+                  "enode://b638fc3dca6181ae97fac2ea0157e8330f5ac8a20c0d4c63aa6f98dcbac4e35b4e023f656757b58c1da7a7b2be9ffad9342e0f769b8cf0f5e35ff73116ff7dfd@3.16.171.213:30303")
+              .map(EnodeURLImpl::fromString)
               .collect(toList()));
 
   private boolean active = true;
@@ -190,6 +226,7 @@ public class DiscoveryConfiguration {
   private String advertisedHost = "127.0.0.1";
   private int bucketSize = 16;
   private List<EnodeURL> bootnodes = new ArrayList<>();
+  private String dnsDiscoveryURL;
 
   public static DiscoveryConfiguration create() {
     return new DiscoveryConfiguration();
@@ -263,6 +300,14 @@ public class DiscoveryConfiguration {
     return this;
   }
 
+  public String getDNSDiscoveryURL() {
+    return dnsDiscoveryURL;
+  }
+
+  public void setDnsDiscoveryURL(final String dnsDiscoveryURL) {
+    this.dnsDiscoveryURL = dnsDiscoveryURL;
+  }
+
   @Override
   public boolean equals(final Object o) {
     if (o == this) {
@@ -277,12 +322,14 @@ public class DiscoveryConfiguration {
         && bucketSize == that.bucketSize
         && Objects.equals(bindHost, that.bindHost)
         && Objects.equals(advertisedHost, that.advertisedHost)
-        && Objects.equals(bootnodes, that.bootnodes);
+        && Objects.equals(bootnodes, that.bootnodes)
+        && Objects.equals(dnsDiscoveryURL, that.dnsDiscoveryURL);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(active, bindHost, bindPort, advertisedHost, bucketSize, bootnodes);
+    return Objects.hash(
+        active, bindHost, bindPort, advertisedHost, bucketSize, bootnodes, dnsDiscoveryURL);
   }
 
   @Override
@@ -302,6 +349,8 @@ public class DiscoveryConfiguration {
         + bucketSize
         + ", bootnodes="
         + bootnodes
+        + ", dnsDiscoveryURL="
+        + dnsDiscoveryURL
         + '}';
   }
 }

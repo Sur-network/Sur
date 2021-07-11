@@ -16,9 +16,16 @@ package org.hyperledger.besu.ethereum.privacy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.hyperledger.besu.crypto.Hash.keccak256;
+import static org.hyperledger.besu.ethereum.privacy.Restriction.RESTRICTED;
+import static org.hyperledger.besu.ethereum.privacy.Restriction.UNRESTRICTED;
+import static org.hyperledger.besu.ethereum.privacy.Restriction.UNSUPPORTED;
 import static org.hyperledger.besu.ethereum.privacy.group.OnChainGroupManagement.REMOVE_PARTICIPANT_METHOD_SIGNATURE;
 
-import org.hyperledger.besu.crypto.SECP256K1;
+import org.hyperledger.besu.crypto.KeyPair;
+import org.hyperledger.besu.crypto.SECPPublicKey;
+import org.hyperledger.besu.crypto.SECPSignature;
+import org.hyperledger.besu.crypto.SignatureAlgorithm;
+import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.Wei;
@@ -33,13 +40,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.apache.tuweni.units.bigints.UInt256;
 
 /** An operation submitted by an external actor to be applied to the system. */
 public class PrivateTransaction {
+  private static final Logger LOG = LogManager.getLogger();
 
   // Used for transactions that are not tied to a specific chain
   // (e.g. does not have a chain id associated with it).
@@ -64,7 +76,7 @@ public class PrivateTransaction {
 
   private final Wei value;
 
-  private final SECP256K1.Signature signature;
+  private final SECPSignature signature;
 
   private final Bytes payload;
 
@@ -91,6 +103,9 @@ public class PrivateTransaction {
   // This field will be removed in 1.5.0
   @Deprecated(since = "1.4.3")
   protected volatile Hash hash;
+
+  private static final Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
+      Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
 
   public static Builder builder() {
     return new Builder();
@@ -123,7 +138,7 @@ public class PrivateTransaction {
     }
     final BigInteger r = input.readUInt256Scalar().toBytes().toUnsignedBigInteger();
     final BigInteger s = input.readUInt256Scalar().toBytes().toUnsignedBigInteger();
-    final SECP256K1.Signature signature = SECP256K1.Signature.create(r, s, recId);
+    final SECPSignature signature = SIGNATURE_ALGORITHM.get().createSignature(r, s, recId);
 
     final Bytes privateFrom = input.readBytes();
     final Object privateForOrPrivacyGroupId = resolvePrivateForOrPrivacyGroupId(input.readAsRlp());
@@ -163,12 +178,14 @@ public class PrivateTransaction {
   }
 
   private static Restriction convertToEnum(final Bytes readBytes) {
-    if (readBytes.equals(Restriction.RESTRICTED.getBytes())) {
-      return Restriction.RESTRICTED;
-    } else if (readBytes.equals(Restriction.UNRESTRICTED.getBytes())) {
-      return Restriction.UNRESTRICTED;
+    if (readBytes.equals(RESTRICTED.getBytes())) {
+      return RESTRICTED;
+    } else if (readBytes.equals(UNRESTRICTED.getBytes())) {
+      return UNRESTRICTED;
+    } else {
+      LOG.error("Transaction restriction '{}' not supported", readBytes.toString());
+      return UNSUPPORTED;
     }
-    return Restriction.UNSUPPORTED;
   }
 
   /**
@@ -199,7 +216,7 @@ public class PrivateTransaction {
       final long gasLimit,
       final Optional<Address> to,
       final Wei value,
-      final SECP256K1.Signature signature,
+      final SECPSignature signature,
       final Bytes payload,
       final Address sender,
       final Optional<BigInteger> chainId,
@@ -292,7 +309,7 @@ public class PrivateTransaction {
    *
    * @return the signature used to sign the transaction
    */
-  public SECP256K1.Signature getSignature() {
+  public SECPSignature getSignature() {
     return signature;
   }
 
@@ -360,8 +377,10 @@ public class PrivateTransaction {
    */
   public Address getSender() {
     if (sender == null) {
-      final SECP256K1.PublicKey publicKey =
-          SECP256K1.PublicKey.recoverFromSignature(getOrComputeSenderRecoveryHash(), signature)
+      final SECPPublicKey publicKey =
+          SIGNATURE_ALGORITHM
+              .get()
+              .recoverPublicKeyFromSignature(getOrComputeSenderRecoveryHash(), signature)
               .orElseThrow(
                   () ->
                       new IllegalStateException(
@@ -442,8 +461,8 @@ public class PrivateTransaction {
   /**
    * Returns the transaction hash.
    *
-   * @deprecated All private transactions should be identified by their corresponding PMT hash.
    * @return the transaction hash
+   * @deprecated All private transactions should be identified by their corresponding PMT hash.
    */
   // This field will be removed in 1.5.0
   @Deprecated(since = "1.4.3")
@@ -613,7 +632,7 @@ public class PrivateTransaction {
 
     protected Wei value;
 
-    protected SECP256K1.Signature signature;
+    protected SECPSignature signature;
 
     protected Bytes payload;
 
@@ -669,7 +688,7 @@ public class PrivateTransaction {
       return this;
     }
 
-    public Builder signature(final SECP256K1.Signature signature) {
+    public Builder signature(final SECPSignature signature) {
       this.signature = signature;
       return this;
     }
@@ -715,7 +734,7 @@ public class PrivateTransaction {
           restriction);
     }
 
-    public PrivateTransaction signAndBuild(final SECP256K1.KeyPair keys) {
+    public PrivateTransaction signAndBuild(final KeyPair keys) {
       checkState(
           signature == null, "The transaction signature has already been provided to this builder");
       signature(computeSignature(keys));
@@ -723,7 +742,7 @@ public class PrivateTransaction {
       return build();
     }
 
-    protected SECP256K1.Signature computeSignature(final SECP256K1.KeyPair keys) {
+    protected SECPSignature computeSignature(final KeyPair keys) {
       final Bytes32 hash =
           computeSenderRecoveryHash(
               nonce,
@@ -737,7 +756,7 @@ public class PrivateTransaction {
               privateFor,
               privacyGroupId,
               restriction.getBytes());
-      return SECP256K1.sign(hash, keys);
+      return SIGNATURE_ALGORITHM.get().sign(hash, keys);
     }
   }
 }

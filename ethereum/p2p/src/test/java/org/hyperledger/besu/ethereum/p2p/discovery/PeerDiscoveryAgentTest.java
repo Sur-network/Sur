@@ -16,14 +16,18 @@ package org.hyperledger.besu.ethereum.p2p.discovery;
 
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.NodeKey;
 import org.hyperledger.besu.crypto.NodeKeyUtils;
+import org.hyperledger.besu.crypto.SignatureAlgorithm;
+import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryTestHelper.AgentBuilder;
 import org.hyperledger.besu.ethereum.p2p.discovery.internal.FindNeighborsPacketData;
 import org.hyperledger.besu.ethereum.p2p.discovery.internal.MockPeerDiscoveryAgent;
@@ -32,28 +36,36 @@ import org.hyperledger.besu.ethereum.p2p.discovery.internal.NeighborsPacketData;
 import org.hyperledger.besu.ethereum.p2p.discovery.internal.Packet;
 import org.hyperledger.besu.ethereum.p2p.discovery.internal.PacketType;
 import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeer;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURL;
+import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions.Action;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissionsDenylist;
+import org.hyperledger.besu.plugin.data.EnodeURL;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
+import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.junit.Test;
 
 public class PeerDiscoveryAgentTest {
 
   private static final int BROADCAST_TCP_PORT = 30303;
+  private static final Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
+      Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
   private final PeerDiscoveryTestHelper helper = new PeerDiscoveryTestHelper();
 
   @Test
   public void createAgentWithInvalidBootnodes() {
     final EnodeURL invalidBootnode =
-        EnodeURL.builder()
+        EnodeURLImpl.builder()
             .nodeId(Peer.randomId())
             .ipAddress("127.0.0.1")
             .listeningPort(30303)
@@ -65,6 +77,88 @@ public class PeerDiscoveryAgentTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Invalid bootnodes")
         .hasMessageContaining("Bootnodes must have discovery enabled");
+  }
+
+  @Test
+  public void testNodeRecordCreated() {
+    KeyPair keyPair =
+        SIGNATURE_ALGORITHM
+            .get()
+            .createKeyPair(
+                SIGNATURE_ALGORITHM
+                    .get()
+                    .createPrivateKey(
+                        Bytes32.fromHexString(
+                            "0xb71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")));
+    final MockPeerDiscoveryAgent agent =
+        helper.startDiscoveryAgent(
+            helper
+                .agentBuilder()
+                .nodeKey(NodeKeyUtils.createFrom(keyPair))
+                .advertisedHost("127.0.0.1")
+                .bindPort(30303));
+    assertThat(agent.getAdvertisedPeer().isPresent()).isTrue();
+    assertThat(agent.getAdvertisedPeer().get().getNodeRecord().isPresent()).isTrue();
+    final NodeRecord nodeRecord = agent.getAdvertisedPeer().get().getNodeRecord().get();
+    assertThat(nodeRecord.getNodeId()).isNotNull();
+    assertThat(nodeRecord.getIdentityScheme()).isNotNull();
+    assertThat(nodeRecord.getSignature()).isNotNull();
+    assertThat(nodeRecord.getSeq()).isNotNull();
+    assertThat(nodeRecord.get("eth")).isNotNull();
+    assertThat(nodeRecord.get("eth"))
+        .isEqualTo(Collections.singletonList(Collections.singletonList(Bytes.EMPTY)));
+    assertThat(nodeRecord.asEnr())
+        .isEqualTo(
+            "enr:-JC4QOfroMOa1sB6ajxcBKdWn3s9S4Ojl33pbRm72S5FnCwyZfskmjkJvZznQaWNTrOHrnKxw1R9xMm9rl"
+                + "EGOcsOyscBg2V0aMLBgIJpZIJ2NIJpcIR_AAABiXNlY3AyNTZrMaEDymNMrg1JrLQB2KTGtv6MVbcNEV"
+                + "v0AHacwUAPMljNMTiDdGNwAoN1ZHCCdl8");
+  }
+
+  @Test
+  public void testNodeRecordCreatedUpdatesDiscoveryPeer() {
+    KeyPair keyPair =
+        SIGNATURE_ALGORITHM
+            .get()
+            .createKeyPair(
+                SIGNATURE_ALGORITHM
+                    .get()
+                    .createPrivateKey(
+                        Bytes32.fromHexString(
+                            "0xb71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")));
+    final MockPeerDiscoveryAgent agent =
+        helper.startDiscoveryAgent(
+            helper
+                .agentBuilder()
+                .nodeKey(NodeKeyUtils.createFrom(keyPair))
+                .advertisedHost("127.0.0.1")
+                .bindPort(30303));
+    agent.start(30303);
+    final NodeRecord pre = agent.getLocalNode().get().getNodeRecord().get();
+    agent.updateNodeRecord();
+    final NodeRecord post = agent.getLocalNode().get().getNodeRecord().get();
+    assertThat(pre).isNotEqualTo(post);
+  }
+
+  @Test
+  public void testNodeRecordNotUpdatedIfNoPeerDiscovery() {
+    KeyPair keyPair =
+        SIGNATURE_ALGORITHM
+            .get()
+            .createKeyPair(
+                SIGNATURE_ALGORITHM
+                    .get()
+                    .createPrivateKey(
+                        Bytes32.fromHexString(
+                            "0xb71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")));
+    final MockPeerDiscoveryAgent agent =
+        helper.startDiscoveryAgent(
+            helper
+                .agentBuilder()
+                .nodeKey(NodeKeyUtils.createFrom(keyPair))
+                .advertisedHost("127.0.0.1")
+                .bindPort(30303)
+                .active(false));
+    assertThatCode(agent::updateNodeRecord).doesNotThrowAnyException();
   }
 
   @Test
@@ -131,19 +225,20 @@ public class PeerDiscoveryAgentTest {
     final IncomingPacket neighborsPacket = incomingPackets.get(0);
     assertThat(neighborsPacket.fromAgent).isEqualTo(agent);
 
-    // Assert that we only received 16 items.
+    // Assert that we only received 13 items.
     assertThat(neighborsPacket.packet.getPacketData(NeighborsPacketData.class).isPresent())
         .isTrue();
     final NeighborsPacketData neighbors =
         neighborsPacket.packet.getPacketData(NeighborsPacketData.class).get();
     assertThat(neighbors).isNotNull();
-    assertThat(neighbors.getNodes()).hasSize(16);
+    assertThat(neighbors.getNodes()).hasSize(13);
+    assertThat(neighborsPacket.packet.encode().length()).isLessThanOrEqualTo(1280); // under max MTU
 
-    // Assert that after removing those 16 items we're left with either 4 or 5.
-    // If we are left with 5, the test peer was returned as an item, assert that this is the case.
+    // Assert that after removing those 13 items we're left with either 7 or 8.
+    // If we are left with 8, the test peer was returned as an item, assert that this is the case.
     otherPeers.removeAll(neighbors.getNodes());
-    assertThat(otherPeers.size()).isBetween(4, 5);
-    if (otherPeers.size() == 5) {
+    assertThat(otherPeers.size()).isBetween(7, 8);
+    if (otherPeers.size() == 8) {
       assertThat(testAgent.getAdvertisedPeer().isPresent()).isTrue();
       assertThat(neighbors.getNodes()).contains(testAgent.getAdvertisedPeer().get());
     }
@@ -278,7 +373,10 @@ public class PeerDiscoveryAgentTest {
     assertThat(otherNode.getAdvertisedPeer().isPresent()).isTrue();
     final DiscoveryPeer remotePeer = otherNode.getAdvertisedPeer().get();
     final EnodeURL enodeWithDiscoveryDisabled =
-        EnodeURL.builder().configureFromEnode(remotePeer.getEnodeURL()).disableDiscovery().build();
+        EnodeURLImpl.builder()
+            .configureFromEnode(remotePeer.getEnodeURL())
+            .disableDiscovery()
+            .build();
     final Peer peerWithDisabledDiscovery = DefaultPeer.fromEnodeURL(enodeWithDiscoveryDisabled);
 
     final PeerPermissions peerPermissions = mock(PeerPermissions.class);

@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.core;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.hyperledger.besu.crypto.SECP256K1.PublicKey;
+import org.hyperledger.besu.crypto.SECPPublicKey;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.rlp.RLPException;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
@@ -60,6 +60,8 @@ public class Address extends DelegatingBytes implements org.hyperledger.besu.plu
   public static final Address ONCHAIN_PRIVACY_PROXY = Address.precompiled(PRIVACY - 2);
   public static final Address DEFAULT_ONCHAIN_PRIVACY_MANAGEMENT = Address.precompiled(PRIVACY - 3);
 
+  public static final Address UNRESTRICTED_PRIVACY = Address.precompiled(PRIVACY - 4);
+
   public static final Address ZERO = Address.fromHexString("0x0");
 
   protected Address(final Bytes bytes) {
@@ -101,7 +103,7 @@ public class Address extends DelegatingBytes implements org.hyperledger.besu.plu
     return wrap(hash.slice(12, 20));
   }
 
-  public static Address extract(final PublicKey publicKey) {
+  public static Address extract(final SECPPublicKey publicKey) {
     return Address.extract(Hash.hash(publicKey.getEncodedBytes()));
   }
 
@@ -140,7 +142,7 @@ public class Address extends DelegatingBytes implements org.hyperledger.besu.plu
     return new Address(value);
   }
 
-  private static Address precompiled(final int value) {
+  public static Address precompiled(final int value) {
     // Keep it simple while we don't need precompiled above 127.
     checkArgument(value < Byte.MAX_VALUE);
     final byte[] address = new byte[SIZE];
