@@ -46,6 +46,7 @@ import org.hyperledger.besu.util.Subscribers;
 
 import java.net.InetSocketAddress;
 import java.net.SocketException;
+import java.nio.channels.UnsupportedAddressTypeException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -58,21 +59,21 @@ import java.util.stream.Stream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.net.InetAddresses;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt64;
 import org.ethereum.beacon.discovery.schema.EnrField;
 import org.ethereum.beacon.discovery.schema.IdentitySchema;
 import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.ethereum.beacon.discovery.schema.NodeRecordFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The peer discovery agent is the network component that sends and receives peer discovery messages
  * via UDP.
  */
 public abstract class PeerDiscoveryAgent {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(PeerDiscoveryAgent.class);
   private static final String SEQ_NO_STORE_KEY = "local-enr-seqno";
   private static final com.google.common.base.Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
       Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
@@ -314,6 +315,22 @@ public abstract class PeerDiscoveryAgent {
                 if (err instanceof SocketException && err.getMessage().contains("unreachable")) {
                   LOG.debug(
                       "Peer {} is unreachable, packet: {}", peer, wrapBuffer(packet.encode()), err);
+                } else if (err instanceof SocketException
+                    && err.getMessage().contentEquals("Operation not permitted")) {
+                  LOG.debug(
+                      "Operation not permitted sending to peer {}, this might be caused by firewall rules blocking traffic to a specific route.",
+                      peer,
+                      err);
+                } else if (err instanceof UnsupportedAddressTypeException) {
+                  LOG.warn(
+                      "Unsupported address type exception when connecting to peer {}, this is likely due to ipv6 not being enabled at runtime. "
+                          + "Set logging level to TRACE to see full stacktrace",
+                      peer);
+                  LOG.trace(
+                      "Sending to peer {} failed, packet: {}, stacktrace: {}",
+                      peer,
+                      wrapBuffer(packet.encode()),
+                      err);
                 } else {
                   LOG.warn(
                       "Sending to peer {} failed, packet: {}",
@@ -358,7 +375,7 @@ public abstract class PeerDiscoveryAgent {
   }
 
   /**
-   * Removes an previously added peer bonded observer.
+   * Removes a previously added peer bonded observer.
    *
    * @param observerId The unique ID identifying the observer to remove.
    * @return Whether the observer was located and removed.

@@ -43,11 +43,11 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MetricsHttpService implements MetricsService {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(MetricsHttpService.class);
 
   private static final InetSocketAddress EMPTY_SOCKET_ADDRESS = new InetSocketAddress("0.0.0.0", 0);
 
@@ -84,6 +84,7 @@ public class MetricsHttpService implements MetricsService {
             new HttpServerOptions()
                 .setHost(config.getHost())
                 .setPort(config.getPort())
+                .setIdleTimeout(config.getIdleTimeout())
                 .setHandle100ContinueAutomatically(true)
                 .setCompressionSupported(true));
 

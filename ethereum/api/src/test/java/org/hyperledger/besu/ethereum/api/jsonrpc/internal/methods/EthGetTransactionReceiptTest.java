@@ -20,6 +20,10 @@ import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.crypto.SECPSignature;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
@@ -27,17 +31,14 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionRec
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionReceiptStatusResult;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.api.query.TransactionReceiptWithMetadata;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.BlockDataGenerator;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.core.fees.TransactionPriceCalculator;
 import org.hyperledger.besu.ethereum.mainnet.PoWHasher;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
 import org.hyperledger.besu.plugin.data.TransactionType;
 
 import java.math.BigInteger;
@@ -45,6 +46,7 @@ import java.util.Collections;
 import java.util.Optional;
 
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.units.bigints.UInt256s;
 import org.junit.Test;
 
 public class EthGetTransactionReceiptTest {
@@ -106,8 +108,8 @@ public class EthGetTransactionReceiptTest {
           null,
           false,
           null,
-          TransactionPriceCalculator.frontier(),
-          Optional.empty(),
+          GasLimitCalculator.constant(),
+          FeeMarket.legacy(),
           null,
           Optional.of(PoWHasher.ETHASH_LIGHT));
   private final ProtocolSpec statusTransactionTypeSpec =
@@ -131,8 +133,8 @@ public class EthGetTransactionReceiptTest {
           null,
           false,
           null,
-          TransactionPriceCalculator.frontier(),
-          Optional.empty(),
+          GasLimitCalculator.constant(),
+          FeeMarket.legacy(),
           null,
           Optional.of(PoWHasher.ETHASH_LIGHT));
 
@@ -184,7 +186,7 @@ public class EthGetTransactionReceiptTest {
     when(blockchain.headBlockNumber()).thenReturn(1L);
     final Transaction transaction1559 =
         new BlockDataGenerator().transaction(TransactionType.EIP1559);
-    final long baseFee = 1L;
+    final Wei baseFee = Wei.ONE;
     final TransactionReceiptWithMetadata transactionReceiptWithMetadata =
         TransactionReceiptWithMetadata.create(
             statusReceipt, transaction1559, hash, 1, 2, Optional.of(baseFee), blockHash, 4);
@@ -198,10 +200,10 @@ public class EthGetTransactionReceiptTest {
         (TransactionReceiptStatusResult) response.getResult();
 
     assertThat(result.getStatus()).isEqualTo("0x1");
-    assertThat(Long.decode(result.getEffectiveGasPrice()))
+    assertThat(Wei.fromHexString(result.getEffectiveGasPrice()))
         .isEqualTo(
-            Math.min(
-                baseFee + transaction1559.getMaxPriorityFeePerGas().get().toLong(),
-                transaction1559.getMaxFeePerGas().get().toLong()));
+            UInt256s.min(
+                baseFee.add(transaction1559.getMaxPriorityFeePerGas().get()),
+                transaction1559.getMaxFeePerGas().get()));
   }
 }

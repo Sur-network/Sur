@@ -14,14 +14,12 @@
  */
 package org.hyperledger.besu.ethereum.stratum;
 
-import static org.apache.logging.log4j.LogManager.getLogger;
-
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
 import org.hyperledger.besu.ethereum.blockcreation.PoWMiningCoordinator;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.mainnet.DirectAcyclicGraphSeed;
 import org.hyperledger.besu.ethereum.mainnet.EpochCalculator;
 import org.hyperledger.besu.ethereum.mainnet.PoWSolution;
@@ -35,8 +33,9 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.io.BaseEncoding;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of the stratum1+tcp protocol.
@@ -44,7 +43,7 @@ import org.apache.tuweni.bytes.Bytes;
  * <p>This protocol allows miners to submit EthHash solutions over a persistent TCP connection.
  */
 public class Stratum1EthProxyProtocol implements StratumProtocol {
-  private static final Logger LOG = getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(Stratum1EthProxyProtocol.class);
   private static final JsonMapper mapper = new JsonMapper();
 
   private final MiningCoordinator miningCoordinator;
@@ -63,7 +62,7 @@ public class Stratum1EthProxyProtocol implements StratumProtocol {
   }
 
   @Override
-  public boolean canHandle(final String initialMessage, final StratumConnection conn) {
+  public boolean maybeHandle(final String initialMessage, final StratumConnection conn) {
     JsonRpcRequest req;
     try {
       req = new JsonObject(initialMessage).mapTo(JsonRpcRequest.class);
@@ -81,7 +80,7 @@ public class Stratum1EthProxyProtocol implements StratumProtocol {
       conn.send(response + "\n");
     } catch (JsonProcessingException e) {
       LOG.debug(e.getMessage(), e);
-      conn.close(null);
+      conn.close();
     }
 
     return true;
@@ -118,7 +117,7 @@ public class Stratum1EthProxyProtocol implements StratumProtocol {
       }
     } catch (IllegalArgumentException | IOException e) {
       LOG.debug(e.getMessage(), e);
-      conn.close(null);
+      conn.close();
     }
   }
 

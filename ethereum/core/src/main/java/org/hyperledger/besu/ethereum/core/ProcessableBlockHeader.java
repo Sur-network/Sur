@@ -14,10 +14,18 @@
  */
 package org.hyperledger.besu.ethereum.core;
 
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.evm.frame.BlockValues;
+
 import java.util.Optional;
 
+import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
+
 /** A block header capable of being processed. */
-public class ProcessableBlockHeader {
+public class ProcessableBlockHeader implements BlockValues {
 
   protected final Hash parentHash;
 
@@ -32,7 +40,9 @@ public class ProcessableBlockHeader {
   // The block creation timestamp (seconds since the unix epoch)
   protected final long timestamp;
   // base fee is included for post EIP-1559 blocks
-  protected final Long baseFee;
+  protected final Wei baseFee;
+  // random is included for post-merge blocks
+  protected final Bytes32 mixHashOrRandom;
 
   protected ProcessableBlockHeader(
       final Hash parentHash,
@@ -41,7 +51,8 @@ public class ProcessableBlockHeader {
       final long number,
       final long gasLimit,
       final long timestamp,
-      final Long baseFee) {
+      final Wei baseFee,
+      final Bytes32 mixHashOrRandom) {
     this.parentHash = parentHash;
     this.coinbase = coinbase;
     this.difficulty = difficulty;
@@ -49,6 +60,7 @@ public class ProcessableBlockHeader {
     this.gasLimit = gasLimit;
     this.timestamp = timestamp;
     this.baseFee = baseFee;
+    this.mixHashOrRandom = mixHashOrRandom;
   }
 
   /**
@@ -79,10 +91,21 @@ public class ProcessableBlockHeader {
   }
 
   /**
+   * Returns the block difficulty.
+   *
+   * @return the block difficulty
+   */
+  @Override
+  public Bytes getDifficultyBytes() {
+    return difficulty.getAsBytes32();
+  }
+
+  /**
    * Returns the block number.
    *
    * @return the block number
    */
+  @Override
   public long getNumber() {
     return number;
   }
@@ -92,6 +115,7 @@ public class ProcessableBlockHeader {
    *
    * @return the block gas limit
    */
+  @Override
   public long getGasLimit() {
     return gasLimit;
   }
@@ -101,6 +125,7 @@ public class ProcessableBlockHeader {
    *
    * @return the block timestamp
    */
+  @Override
   public long getTimestamp() {
     return timestamp;
   }
@@ -108,9 +133,19 @@ public class ProcessableBlockHeader {
   /**
    * Returns the basefee of the block.
    *
-   * @return the raw bytes of the extra data field
+   * @return the optional long value for base fee
    */
-  public Optional<Long> getBaseFee() {
+  @Override
+  public Optional<Wei> getBaseFee() {
     return Optional.ofNullable(baseFee);
+  }
+
+  /**
+   * Returns the random of the block.
+   *
+   * @return the raw bytes of the random field
+   */
+  public Optional<Bytes32> getRandom() {
+    return Optional.ofNullable(mixHashOrRandom);
   }
 }

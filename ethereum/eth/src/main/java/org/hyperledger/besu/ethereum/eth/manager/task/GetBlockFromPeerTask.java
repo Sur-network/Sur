@@ -14,9 +14,9 @@
  */
 package org.hyperledger.besu.ethereum.eth.manager.task;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer;
 import org.hyperledger.besu.ethereum.eth.manager.exceptions.IncompleteResultsException;
@@ -27,13 +27,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Downloads a block from a peer. Will complete exceptionally if block cannot be downloaded. */
 public class GetBlockFromPeerTask extends AbstractPeerTask<Block> {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(GetBlockFromPeerTask.class);
 
   private final ProtocolSchedule protocolSchedule;
   private final Optional<Hash> hash;
@@ -64,7 +63,7 @@ public class GetBlockFromPeerTask extends AbstractPeerTask<Block> {
 
   @Override
   protected void executeTask() {
-    final String blockIdentifier = hash.map(Bytes::toHexString).orElse(Long.toString(blockNumber));
+    final String blockIdentifier = blockNumber + " (" + hash + ")";
     LOG.debug(
         "Downloading block {} from peer {}.",
         blockIdentifier,
@@ -74,13 +73,19 @@ public class GetBlockFromPeerTask extends AbstractPeerTask<Block> {
         .whenComplete(
             (r, t) -> {
               if (t != null) {
-                LOG.info(
-                    "Failed to download block {} from peer {}.",
+                LOG.debug(
+                    "Failed to download block {} from peer {} with message '{}' and cause '{}'",
                     blockIdentifier,
-                    assignedPeer.map(EthPeer::toString).orElse("<any>"));
+                    assignedPeer.map(EthPeer::toString).orElse("<any>"),
+                    t.getMessage(),
+                    t.getCause());
                 result.completeExceptionally(t);
               } else if (r.getResult().isEmpty()) {
-                LOG.info("Failed to download block {} from peer {}.", blockIdentifier, r.getPeer());
+                r.getPeer().recordUselessResponse("Download block returned an empty result");
+                LOG.debug(
+                    "Failed to download block {} from peer {} with empty result.",
+                    blockIdentifier,
+                    r.getPeer());
                 result.completeExceptionally(new IncompleteResultsException());
               } else {
                 LOG.debug(
@@ -111,6 +116,7 @@ public class GetBlockFromPeerTask extends AbstractPeerTask<Block> {
   private CompletableFuture<PeerTaskResult<List<Block>>> completeBlock(
       final PeerTaskResult<List<BlockHeader>> headerResult) {
     if (headerResult.getResult().isEmpty()) {
+      LOG.debug("header result is empty.");
       return CompletableFuture.failedFuture(new IncompleteResultsException());
     }
 

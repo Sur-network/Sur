@@ -15,8 +15,9 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.methods;
 
 import org.hyperledger.besu.config.GenesisConfigOptions;
+import org.hyperledger.besu.config.experimental.MergeConfigOptions;
+import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcConfiguration;
-import org.hyperledger.besu.ethereum.api.jsonrpc.RpcApi;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.filter.FilterManager;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.RpcModules;
@@ -56,14 +57,15 @@ public class JsonRpcMethodsFactory {
       final BlockchainQueries blockchainQueries,
       final Synchronizer synchronizer,
       final ProtocolSchedule protocolSchedule,
+      final ProtocolContext protocolContext,
       final FilterManager filterManager,
       final TransactionPool transactionPool,
       final MiningCoordinator miningCoordinator,
       final ObservableMetricsSystem metricsSystem,
       final Set<Capability> supportedCapabilities,
-      final Optional<AccountLocalConfigPermissioningController> accountsWhitelistController,
-      final Optional<NodeLocalConfigPermissioningController> nodeWhitelistController,
-      final Collection<RpcApi> rpcApis,
+      final Optional<AccountLocalConfigPermissioningController> accountsAllowlistController,
+      final Optional<NodeLocalConfigPermissioningController> nodeAllowlistController,
+      final Collection<String> rpcApis,
       final PrivacyParameters privacyParameters,
       final JsonRpcConfiguration jsonRpcConfiguration,
       final WebSocketConfiguration webSocketConfiguration,
@@ -111,7 +113,7 @@ public class JsonRpcMethodsFactory {
                   webSocketConfiguration,
                   metricsConfiguration),
               new MinerJsonRpcMethods(miningCoordinator),
-              new PermJsonRpcMethods(accountsWhitelistController, nodeWhitelistController),
+              new PermJsonRpcMethods(accountsAllowlistController, nodeAllowlistController),
               new PrivJsonRpcMethods(
                   blockchainQueries,
                   protocolSchedule,
@@ -121,10 +123,17 @@ public class JsonRpcMethodsFactory {
               new PrivxJsonRpcMethods(
                   blockchainQueries, protocolSchedule, transactionPool, privacyParameters),
               new Web3JsonRpcMethods(clientVersion),
-              // TRACE Methods (Disabled while under development)
-              new TraceJsonRpcMethods(blockchainQueries, protocolSchedule),
+              new TraceJsonRpcMethods(blockchainQueries, protocolSchedule, privacyParameters),
               new TxPoolJsonRpcMethods(transactionPool),
               new PluginsJsonRpcMethods(namedPlugins));
+
+      // TODO: Implement engine-specific json-rpc endpoint rather than including consensus here
+      // https://github.com/hyperledger/besu/issues/2914
+      MergeConfigOptions.doIfMergeEnabled(
+          () ->
+              enabled.putAll(
+                  new ExecutionEngineJsonRpcMethods(miningCoordinator, protocolContext)
+                      .create(rpcApis)));
 
       for (final JsonRpcMethods apiGroup : availableApiGroups) {
         enabled.putAll(apiGroup.create(rpcApis));

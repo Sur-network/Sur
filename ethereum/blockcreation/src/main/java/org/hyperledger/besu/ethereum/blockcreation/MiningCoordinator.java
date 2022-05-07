@@ -14,12 +14,12 @@
  */
 package org.hyperledger.besu.ethereum.blockcreation;
 
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.chain.PoWObserver;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
-import org.hyperledger.besu.ethereum.core.Wei;
 import org.hyperledger.besu.ethereum.mainnet.PoWSolution;
 import org.hyperledger.besu.ethereum.mainnet.PoWSolverInputs;
 
@@ -104,6 +104,15 @@ public interface MiningCoordinator {
       final BlockHeader parentHeader,
       final List<Transaction> transactions,
       final List<BlockHeader> ommers);
+
+  /**
+   * Creates a block if possible, otherwise return an empty result
+   *
+   * @param parentHeader The parent block's header
+   * @param timestamp unix timestamp of the new block.
+   * @return If supported, returns the block that was created, otherwise an empty response.
+   */
+  Optional<Block> createBlock(final BlockHeader parentHeader, final long timestamp);
 
   default void addEthHashObserver(final PoWObserver observer) {}
 

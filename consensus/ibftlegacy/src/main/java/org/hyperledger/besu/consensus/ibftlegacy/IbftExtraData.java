@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import org.hyperledger.besu.crypto.SECPSignature;
 import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
-import org.hyperledger.besu.ethereum.core.Address;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.ParsedExtraData;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPInput;
@@ -31,16 +31,16 @@ import java.util.Collection;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Represents the data structure stored in the extraData field of the BlockHeader used when
  * operating under an IBFT consensus mechanism.
  */
 public class IbftExtraData implements ParsedExtraData {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(IbftExtraData.class);
 
   public static final int EXTRA_VANITY_LENGTH = 32;
   private static final Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =

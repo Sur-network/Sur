@@ -25,7 +25,7 @@ import org.junit.Test;
 
 public class Web3ClientVersionTest {
 
-  private final String CLIENT_VERSION = "sur/1.0.0";
+  private final String CLIENT_VERSION = "besu/1.0.0";
   private final String JSON_RPC_VERSION = "2.0";
   private final String ETH_METHOD = "web3_clientVersion";
 
@@ -46,6 +46,6 @@ public class Web3ClientVersionTest {
         new JsonRpcSuccessResponse(request.getRequest().getId(), CLIENT_VERSION);
     final JsonRpcResponse actual = method.response(request);
 
-    assertThat(actual).isEqualToComparingFieldByFieldRecursively(expected);
+    assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
   }
 }

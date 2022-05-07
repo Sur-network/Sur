@@ -24,7 +24,7 @@ import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 
-public class AccountLocalAndOnChainPermissioningAcceptanceTest
+public class AccountLocalAndOnchainPermissioningAcceptanceTest
     extends AccountSmartContractPermissioningAcceptanceTestBase {
 
   private Account senderC;
@@ -36,7 +36,7 @@ public class AccountLocalAndOnChainPermissioningAcceptanceTest
 
   @Test
   public void testAccountCannotSendTxWhenNotOnLocalAllowList() {
-    // OnChain allowlist: Primary, Secondary, C
+    // Onchain allowlist: Primary, Secondary, C
     // Local allowlist: Primary, Secondary
 
     final Node node =
@@ -51,7 +51,7 @@ public class AccountLocalAndOnChainPermissioningAcceptanceTest
     node.execute(accountTransactions.createTransfer(senderC, 10));
     node.verify(senderC.balanceEquals(10));
 
-    // add accounts to onChain allowlist
+    // add accounts to onchain allowlist
     node.execute(allowAccount(accounts.getPrimaryBenefactor()));
     node.verify(accountIsAllowed(accounts.getPrimaryBenefactor()));
 
@@ -66,8 +66,8 @@ public class AccountLocalAndOnChainPermissioningAcceptanceTest
   }
 
   @Test
-  public void testAccountCannotSendTxWhenNotOnOnChainAllowList() {
-    // OnChain allowlist: Primary, Secondary, Receiver
+  public void testAccountCannotSendTxWhenNotOnOnchainAllowList() {
+    // Onchain allowlist: Primary, Secondary, Receiver
     // Local allowlist: Primary, Secondary, C, Receiver
 
     final Account receiverAccount = accounts.createAccount("Rec-A");
@@ -86,7 +86,7 @@ public class AccountLocalAndOnChainPermissioningAcceptanceTest
     node.execute(accountTransactions.createTransfer(senderC, 10));
     node.verify(senderC.balanceEquals(10));
 
-    // add accounts to onChain allowlist
+    // add accounts to onchain allowlist
     node.execute(allowAccount(accounts.getPrimaryBenefactor()));
     node.verify(accountIsAllowed(accounts.getPrimaryBenefactor()));
 
@@ -96,12 +96,11 @@ public class AccountLocalAndOnChainPermissioningAcceptanceTest
     node.execute(allowAccount(receiverAccount));
     node.verify(accountIsAllowed(receiverAccount));
 
-    // verify senderC is forbidden because it is not on OnChain allowlist
+    // verify senderC is forbidden because it is not on Onchain allowlist
     node.verify(accountIsForbidden(senderC));
 
-    // sender C should not be able to send Tx as well
-    node.execute(accountTransactions.createTransfer(senderC, receiverAccount, 1));
-    node.verify(receiverAccount.balanceDoesNotChange(0));
+    // sender C should not be able to send Tx
+    verifyTransferForbidden(node, senderC, accounts.getSecondaryBenefactor());
 
     // final check, other account should be able to send tx
     node.execute(
@@ -111,11 +110,11 @@ public class AccountLocalAndOnChainPermissioningAcceptanceTest
 
   private void verifyTransferForbidden(
       final Node node, final Account sender, final Account beneficiary) {
-    BigInteger nonce = node.execute(ethTransactions.getTransactionCount(sender.getAddress()));
-    TransferTransaction transfer =
+    final BigInteger nonce = node.execute(ethTransactions.getTransactionCount(sender.getAddress()));
+    final TransferTransaction transfer =
         accountTransactions.createTransfer(sender, beneficiary, 1, nonce);
     node.verify(
-        eth.sendRawTransactionExceptional(
+        eth.expectEthSendRawTransactionException(
             transfer.signedTransactionData(),
             "Sender account not authorized to send transactions"));
   }

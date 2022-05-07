@@ -16,13 +16,14 @@ package org.hyperledger.besu.ethereum.worldstate;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.hyperledger.besu.ethereum.core.Account;
-import org.hyperledger.besu.ethereum.core.Hash;
-import org.hyperledger.besu.ethereum.core.Wei;
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 import org.hyperledger.besu.ethereum.rlp.RLPOutput;
 
 import java.util.Objects;
+
+import org.apache.tuweni.bytes.Bytes32;
 
 /** Represents the raw values associated with an account in the world state trie. */
 public class StateTrieAccountValue {
@@ -31,14 +32,9 @@ public class StateTrieAccountValue {
   private final Wei balance;
   private final Hash storageRoot;
   private final Hash codeHash;
-  private final int version;
 
   public StateTrieAccountValue(
-      final long nonce,
-      final Wei balance,
-      final Hash storageRoot,
-      final Hash codeHash,
-      final int version) {
+      final long nonce, final Wei balance, final Hash storageRoot, final Hash codeHash) {
     checkNotNull(balance, "balance cannot be null");
     checkNotNull(storageRoot, "storageRoot cannot be null");
     checkNotNull(codeHash, "codeHash cannot be null");
@@ -46,7 +42,6 @@ public class StateTrieAccountValue {
     this.balance = balance;
     this.storageRoot = storageRoot;
     this.codeHash = codeHash;
-    this.version = version;
   }
 
   /**
@@ -85,22 +80,12 @@ public class StateTrieAccountValue {
     return codeHash;
   }
 
-  /**
-   * The version of the EVM bytecode associated with this account.
-   *
-   * @return the version of the account code.
-   */
-  public int getVersion() {
-    return version;
-  }
-
   @Override
   public boolean equals(final Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     final StateTrieAccountValue that = (StateTrieAccountValue) o;
     return nonce == that.nonce
-        && version == that.version
         && balance.equals(that.balance)
         && storageRoot.equals(that.storageRoot)
         && codeHash.equals(that.codeHash);
@@ -108,7 +93,7 @@ public class StateTrieAccountValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(nonce, balance, storageRoot, codeHash, version);
+    return Objects.hash(nonce, balance, storageRoot, codeHash);
   }
 
   public void writeTo(final RLPOutput out) {
@@ -119,11 +104,6 @@ public class StateTrieAccountValue {
     out.writeBytes(storageRoot);
     out.writeBytes(codeHash);
 
-    if (version != Account.DEFAULT_VERSION) {
-      // version of zero is never written out.
-      out.writeIntScalar(version);
-    }
-
     out.endList();
   }
 
@@ -132,17 +112,23 @@ public class StateTrieAccountValue {
 
     final long nonce = in.readLongScalar();
     final Wei balance = Wei.of(in.readUInt256Scalar());
-    final Hash storageRoot = Hash.wrap(in.readBytes32());
-    final Hash codeHash = Hash.wrap(in.readBytes32());
-    final int version;
-    if (!in.isEndOfCurrentList()) {
-      version = in.readIntScalar();
+    Bytes32 storageRoot;
+    Bytes32 codeHash;
+    if (in.nextIsNull()) {
+      storageRoot = Hash.EMPTY_TRIE_HASH;
+      in.skipNext();
     } else {
-      version = Account.DEFAULT_VERSION;
+      storageRoot = in.readBytes32();
+    }
+    if (in.nextIsNull()) {
+      codeHash = Hash.EMPTY;
+      in.skipNext();
+    } else {
+      codeHash = in.readBytes32();
     }
 
     in.leaveList();
 
-    return new StateTrieAccountValue(nonce, balance, storageRoot, codeHash, version);
+    return new StateTrieAccountValue(nonce, balance, Hash.wrap(storageRoot), Hash.wrap(codeHash));
   }
 }

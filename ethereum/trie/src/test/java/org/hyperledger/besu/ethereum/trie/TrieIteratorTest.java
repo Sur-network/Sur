@@ -20,8 +20,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.crypto.Hash;
@@ -71,7 +71,7 @@ public class TrieIteratorTest {
   public void shouldNotNotifyLeafHandlerOfNullNodes() {
     NullNode.<String>instance().accept(iterator, PATH1);
 
-    verifyZeroInteractions(leafHandler);
+    verifyNoInteractions(leafHandler);
   }
 
   @Test
@@ -124,8 +124,7 @@ public class TrieIteratorTest {
     final int startNodeNumber = random.nextInt(Math.max(1, totalNodes - 1));
     final int stopNodeNumber = random.nextInt(Math.max(1, totalNodes - 1));
     for (int i = 0; i < totalNodes; i++) {
-      final Bytes32 keyHash =
-          Hash.keccak256(UInt256.valueOf(Math.abs(random.nextLong())).toBytes());
+      final Bytes32 keyHash = Hash.keccak256(UInt256.valueOf(Math.abs(random.nextLong())));
       root = root.accept(new PutVisitor<>(nodeFactory, "Value"), bytesToPath(keyHash));
       expectedKeyHashes.add(keyHash);
       if (i == startNodeNumber) {

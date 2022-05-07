@@ -14,11 +14,12 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.results;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.api.query.BlockWithMetadata;
 import org.hyperledger.besu.ethereum.api.query.TransactionWithMetadata;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.Hash;
+import org.hyperledger.besu.ethereum.core.encoding.TransactionEncoder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import org.apache.tuweni.bytes.Bytes;
 
 public class BlockResultFactory {
 
@@ -64,6 +66,7 @@ public class BlockResultFactory {
           new TransactionWithMetadata(
               block.getBody().getTransactions().get(i),
               block.getHeader().getNumber(),
+              block.getHeader().getBaseFee(),
               block.getHash(),
               i));
     }
@@ -80,6 +83,16 @@ public class BlockResultFactory {
             .collect(Collectors.toList());
     return new BlockResult(
         block.getHeader(), txs, ommers, block.getHeader().getDifficulty(), block.calculateSize());
+  }
+
+  public EngineGetPayloadResult enginePayloadTransactionComplete(final Block block) {
+    final List<String> txs =
+        block.getBody().getTransactions().stream()
+            .map(TransactionEncoder::encodeOpaqueBytes)
+            .map(Bytes::toHexString)
+            .collect(Collectors.toList());
+
+    return new EngineGetPayloadResult(block.getHeader(), txs);
   }
 
   public BlockResult transactionHash(final BlockWithMetadata<Hash, Hash> blockWithMetadata) {

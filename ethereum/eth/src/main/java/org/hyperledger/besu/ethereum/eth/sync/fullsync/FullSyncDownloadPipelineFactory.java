@@ -34,9 +34,11 @@ import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.services.pipeline.Pipeline;
 import org.hyperledger.besu.services.pipeline.PipelineBuilder;
 
-import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FullSyncDownloadPipelineFactory implements DownloadPipelineFactory {
+  private static final Logger LOG = LoggerFactory.getLogger(FullSyncDownloadPipelineFactory.class);
 
   private final SynchronizerConfiguration syncConfig;
   private final ProtocolSchedule protocolSchedule;
@@ -68,8 +70,7 @@ public class FullSyncDownloadPipelineFactory implements DownloadPipelineFactory 
     final int singleHeaderBufferSize = headerRequestSize * downloaderParallelism;
     final CheckpointRangeSource checkpointRangeSource =
         new CheckpointRangeSource(
-            new CheckpointHeaderFetcher(
-                syncConfig, protocolSchedule, ethContext, Optional.empty(), metricsSystem),
+            new CheckpointHeaderFetcher(syncConfig, protocolSchedule, ethContext, metricsSystem),
             this::shouldContinueDownloadingFromPeer,
             ethContext.getScheduler(),
             target.peer(),
@@ -116,8 +117,16 @@ public class FullSyncDownloadPipelineFactory implements DownloadPipelineFactory 
       final EthPeer peer, final BlockHeader lastCheckpointHeader) {
     final boolean caughtUpToPeer =
         peer.chainState().getEstimatedHeight() <= lastCheckpointHeader.getNumber();
-    return !peer.isDisconnected()
-        && !caughtUpToPeer
-        && !betterSyncTargetEvaluator.shouldSwitchSyncTarget(peer);
+    final boolean isDisconnected = peer.isDisconnected();
+    final boolean shouldSwitchSyncTarget = betterSyncTargetEvaluator.shouldSwitchSyncTarget(peer);
+
+    LOG.debug(
+        "shouldContinueDownloadingFromPeer? {}, disconnected {}, caughtUp {}, shouldSwitchSyncTarget {}",
+        peer,
+        isDisconnected,
+        caughtUpToPeer,
+        shouldSwitchSyncTarget);
+
+    return !isDisconnected && !caughtUpToPeer && !shouldSwitchSyncTarget;
   }
 }

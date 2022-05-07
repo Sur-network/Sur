@@ -46,13 +46,15 @@ public class EthGraphQLHttpBySpecTest extends AbstractEthGraphQLHttpServiceTest 
 
     specs.add("eth_blockNumber");
 
-    // specs.add("eth_call_Block8");
-    // specs.add("eth_call_Block8_invalidHexBytesData");
+    specs.add("eth_call_Block8");
+    specs.add("eth_call_Block8_invalidHexBytesData");
     specs.add("eth_call_BlockLatest");
+    specs.add("eth_call_from_contract");
 
-    /*specs.add("eth_estimateGas_transfer");
+    specs.add("eth_estimateGas_transfer");
     specs.add("eth_estimateGas_noParams");
     specs.add("eth_estimateGas_contractDeploy");
+    specs.add("eth_estimateGas_from_contract");
 
     specs.add("eth_gasPrice");
 
@@ -107,7 +109,7 @@ public class EthGraphQLHttpBySpecTest extends AbstractEthGraphQLHttpServiceTest 
     specs.add("graphql_pending");
 
     specs.add("graphql_tooComplex");
-    specs.add("graphql_tooComplexSchema");*/
+    specs.add("graphql_tooComplexSchema");
 
     return specs;
   }

@@ -52,12 +52,12 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.timeout.IdleStateHandler;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class DeFramer extends ByteToMessageDecoder {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(DeFramer.class);
 
   private final CompletableFuture<PeerConnection> connectFuture;
 
@@ -138,7 +138,7 @@ final class DeFramer extends ByteToMessageDecoder {
         // Check peer is who we expected
         if (expectedPeer.isPresent()
             && !Objects.equals(expectedPeer.get().getId(), peerInfo.getNodeId())) {
-          String unexpectedMsg =
+          final String unexpectedMsg =
               String.format(
                   "Expected id %s, but got %s", expectedPeer.get().getId(), peerInfo.getNodeId());
           connectFuture.completeExceptionally(new UnexpectedPeerConnectionException(unexpectedMsg));
@@ -166,16 +166,19 @@ final class DeFramer extends ByteToMessageDecoder {
                 new MessageFramer(capabilityMultiplexer, framer));
         connectFuture.complete(connection);
       } else if (message.getCode() == WireMessageCodes.DISCONNECT) {
-        DisconnectMessage disconnectMessage = DisconnectMessage.readFrom(message);
+        final DisconnectMessage disconnectMessage = DisconnectMessage.readFrom(message);
         LOG.debug(
-            "Peer disconnected before sending HELLO.  Reason: " + disconnectMessage.getReason());
+            "Peer {} disconnected before sending HELLO.  Reason: {}",
+            expectedPeer.map(Peer::getEnodeURLString).orElse("unknown"),
+            disconnectMessage.getReason());
         ctx.close();
         connectFuture.completeExceptionally(
             new PeerDisconnectedException(disconnectMessage.getReason()));
       } else {
         // Unexpected message - disconnect
         LOG.debug(
-            "Message received before HELLO's exchanged, disconnecting.  Code: {}, Data: {}",
+            "Message received before HELLO's exchanged, disconnecting.  Peer: {}, Code: {}, Data: {}",
+            expectedPeer.map(Peer::getEnodeURLString).orElse("unknown"),
             message.getCode(),
             message.getData().toString());
         ctx.writeAndFlush(

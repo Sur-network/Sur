@@ -16,10 +16,10 @@ package org.hyperledger.besu.ethereum.eth.manager.task;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer;
@@ -40,13 +40,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes32;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Requests bodies from a peer by header, matches up headers to bodies, and returns blocks. */
 public class GetBodiesFromPeerTask extends AbstractPeerRequestTask<List<Block>> {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(GetBodiesFromPeerTask.class);
 
   private final ProtocolSchedule protocolSchedule;
   private final List<BlockHeader> headers;
@@ -106,9 +106,11 @@ public class GetBodiesFromPeerTask extends AbstractPeerRequestTask<List<Block>> 
     final List<BlockBody> bodies = bodiesMessage.bodies(protocolSchedule);
     if (bodies.size() == 0) {
       // Message contains no data - nothing to do
+      LOG.debug("Message contains no data. Peer: {}", peer);
       return Optional.empty();
     } else if (bodies.size() > headers.size()) {
       // Message doesn't match our request - nothing to do
+      LOG.debug("Message doesn't match our request. Peer: {}", peer);
       return Optional.empty();
     }
 
@@ -117,6 +119,7 @@ public class GetBodiesFromPeerTask extends AbstractPeerRequestTask<List<Block>> 
       final List<BlockHeader> headers = bodyToHeaders.get(new BodyIdentifier(body));
       if (headers == null) {
         // This message contains unrelated bodies - exit
+        LOG.debug("This message contains unrelated bodies. Peer: {}", peer);
         return Optional.empty();
       }
       headers.forEach(h -> blocks.add(new Block(h, body)));

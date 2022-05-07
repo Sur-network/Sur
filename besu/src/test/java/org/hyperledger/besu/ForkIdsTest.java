@@ -31,6 +31,7 @@ import org.hyperledger.besu.ethereum.eth.manager.ForkIdManager;
 import org.hyperledger.besu.ethereum.mainnet.MainnetProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.MutableProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 
 import java.util.Collection;
 import java.util.List;
@@ -107,9 +108,10 @@ public class ForkIdsTest {
               new ForkId(Bytes.ofUnsignedInt(0x668db0afL), 9069000L),
               new ForkId(Bytes.ofUnsignedInt(0x879d6e30L), 9200000L),
               new ForkId(Bytes.ofUnsignedInt(0xe029e991L), 12244000L),
-              new ForkId(Bytes.ofUnsignedInt(0xeb440f6L), 12965000),
-              new ForkId(Bytes.ofUnsignedInt(0xb715077dL), 0L),
-              new ForkId(Bytes.ofUnsignedInt(0xb715077dL), 0L))
+              new ForkId(Bytes.ofUnsignedInt(0xeb440f6L), 12965000L),
+              new ForkId(Bytes.ofUnsignedInt(0xb715077dL), 13773000L),
+              new ForkId(Bytes.ofUnsignedInt(0x20c327fc), 0L),
+              new ForkId(Bytes.ofUnsignedInt(0x20c327fc), 0L))
         },
         new Object[] {
           NetworkName.MORDOR,
@@ -118,8 +120,9 @@ public class ForkIdsTest {
               new ForkId(Bytes.ofUnsignedInt(0x604f6ee1L), 999983L),
               new ForkId(Bytes.ofUnsignedInt(0xf42f5539L), 2520000L),
               new ForkId(Bytes.ofUnsignedInt(0x66b5c286L), 3985893),
-              new ForkId(Bytes.ofUnsignedInt(0x92b323e0L), 0),
-              new ForkId(Bytes.ofUnsignedInt(0x92b323e0L), 0))
+              new ForkId(Bytes.ofUnsignedInt(0x92b323e0L), 5520000L),
+              new ForkId(Bytes.ofUnsignedInt(0x8c9b1797L), 0L),
+              new ForkId(Bytes.ofUnsignedInt(0x8c9b1797L), 0L))
         },
         new Object[] {
           NetworkName.KOTTI,
@@ -128,8 +131,9 @@ public class ForkIdsTest {
               new ForkId(Bytes.ofUnsignedInt(0xa3270822L), 1705549L),
               new ForkId(Bytes.ofUnsignedInt(0x8f3698e0L), 2200013L),
               new ForkId(Bytes.ofUnsignedInt(0x6f402821L), 4368634),
-              new ForkId(Bytes.ofUnsignedInt(0xf03e54e7L), 0),
-              new ForkId(Bytes.ofUnsignedInt(0xf03e54e7L), 0))
+              new ForkId(Bytes.ofUnsignedInt(0xf03e54e7L), 5578000L),
+              new ForkId(Bytes.ofUnsignedInt(0xc5459816L), 0L),
+              new ForkId(Bytes.ofUnsignedInt(0xc5459816L), 0L))
         },
         new Object[] {
           NetworkName.CLASSIC,
@@ -146,8 +150,9 @@ public class ForkIdsTest {
               new ForkId(Bytes.ofUnsignedInt(0x7ba22882L), 10500839L),
               new ForkId(Bytes.ofUnsignedInt(0x9007bfccL), 11700000L),
               new ForkId(Bytes.ofUnsignedInt(0xdb63a1caL), 13189133),
-              new ForkId(Bytes.ofUnsignedInt(0x0f6bf187L), 0),
-              new ForkId(Bytes.ofUnsignedInt(0x0f6bf187L), 0))
+              new ForkId(Bytes.ofUnsignedInt(0x0f6bf187L), 14525000L),
+              new ForkId(Bytes.ofUnsignedInt(0x7fd1bb25L), 0L),
+              new ForkId(Bytes.ofUnsignedInt(0x7fd1bb25L), 0L))
         });
   }
 
@@ -156,7 +161,8 @@ public class ForkIdsTest {
     final GenesisConfigFile genesisConfigFile =
         GenesisConfigFile.fromConfig(EthNetworkConfig.jsonConfig(chainName));
     final GenesisConfigOptions configOptions = genesisConfigFile.getConfigOptions();
-    final ProtocolSchedule schedule = MainnetProtocolSchedule.fromConfig(configOptions);
+    final ProtocolSchedule schedule =
+        MainnetProtocolSchedule.fromConfig(configOptions, EvmConfiguration.DEFAULT);
     final GenesisState genesisState = GenesisState.fromConfig(genesisConfigFile, schedule);
     final Blockchain mockBlockchain = mock(Blockchain.class);
 

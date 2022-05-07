@@ -15,6 +15,7 @@
 package org.hyperledger.besu;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hyperledger.besu.ethereum.core.PrivacyParameters.DEFAULT_PRIVACY;
 import static org.hyperledger.besu.ethereum.privacy.PrivateStateRootResolver.EMPTY_ROOT_HASH;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -26,25 +27,23 @@ import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.NodeKeyUtils;
 import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.enclave.Enclave;
 import org.hyperledger.besu.enclave.EnclaveFactory;
 import org.hyperledger.besu.enclave.types.PrivacyGroup;
-import org.hyperledger.besu.enclave.types.SendResponse;
+import org.hyperledger.besu.enclave.types.ReceiveResponse;
+import org.hyperledger.besu.ethereum.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.blockcreation.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.chain.DefaultBlockchain;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockDataGenerator;
 import org.hyperledger.besu.ethereum.core.Difficulty;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.InMemoryKeyValueStorageProvider;
 import org.hyperledger.besu.ethereum.core.InMemoryPrivacyStorageProvider;
-import org.hyperledger.besu.ethereum.core.LogsBloomFilter;
-import org.hyperledger.besu.ethereum.core.MiningParametersTestBuilder;
+import org.hyperledger.besu.ethereum.core.MiningParameters;
 import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.core.Transaction;
-import org.hyperledger.besu.ethereum.core.Wei;
 import org.hyperledger.besu.ethereum.eth.EthProtocolConfiguration;
 import org.hyperledger.besu.ethereum.eth.sync.SynchronizerConfiguration;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolConfiguration;
@@ -52,33 +51,29 @@ import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.privacy.PrivateStateRootResolver;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransaction;
 import org.hyperledger.besu.ethereum.privacy.RestrictedDefaultPrivacyController;
-import org.hyperledger.besu.ethereum.privacy.Restriction;
 import org.hyperledger.besu.ethereum.privacy.storage.PrivacyGroupHeadBlockMap;
 import org.hyperledger.besu.ethereum.privacy.storage.PrivacyStorageProvider;
 import org.hyperledger.besu.ethereum.privacy.storage.PrivateStateStorage;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
+import org.hyperledger.besu.evm.log.LogsBloomFilter;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
+import org.hyperledger.besu.plugin.data.Restriction;
 import org.hyperledger.besu.plugin.data.TransactionType;
 import org.hyperledger.besu.testutil.TestClock;
-import org.hyperledger.enclave.testutil.EnclaveKeyConfiguration;
-import org.hyperledger.enclave.testutil.EnclaveTestHarness;
-import org.hyperledger.enclave.testutil.OrionTestHarnessFactory;
 
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import io.vertx.core.Vertx;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -114,6 +109,8 @@ public class PrivacyReorgTest {
       "0x2121b68f1333e93bae8cd717a3ca68c9d7e7003f6b288c36dfc59b0f87be9590";
   private static final Bytes32 PRIVACY_GROUP_BYTES32 =
       Bytes32.fromHexString("0xf250d523ae9164722b06ca25cfa2a7f3c45df96b09e215236f886c876f715bfa");
+  private static final Bytes32 PRIVACY_TRANSACTION_PAYLOAD =
+      Bytes32.fromHexString("0xa250d523ae9164722b06ca25cfa2a7f3c45df96b09e215236f886c876f715bfa");
 
   // EventEmitter contract binary
   private static final Bytes MOCK_PAYLOAD =
@@ -135,34 +132,55 @@ public class PrivacyReorgTest {
 
   private final BlockDataGenerator gen = new BlockDataGenerator();
   private BesuController besuController;
-  private EnclaveTestHarness enclave;
   private PrivateStateRootResolver privateStateRootResolver;
   private PrivacyParameters privacyParameters;
   private RestrictedDefaultPrivacyController privacyController;
+  private Enclave mockEnclave;
+  private Transaction privacyMarkerTransaction;
 
   @Before
   public void setUp() throws IOException {
-    enclave =
-        OrionTestHarnessFactory.create(
-            "orion",
-            folder.newFolder().toPath(),
-            new EnclaveKeyConfiguration("enclavePublicKey", "enclavePrivateKey"));
-    enclave.start();
+    mockEnclave = mock(Enclave.class);
+    final BytesValueRLPOutput rlpOutput = new BytesValueRLPOutput();
+    PRIVATE_TRANSACTION.writeTo(rlpOutput);
+
+    when(mockEnclave.receive(any()))
+        .thenReturn(
+            new ReceiveResponse(
+                rlpOutput.encoded().toBase64String().getBytes(StandardCharsets.UTF_8),
+                PRIVACY_GROUP_BYTES32.toBase64String(),
+                ENCLAVE_PUBLIC_KEY.toBase64String()));
+
+    privacyMarkerTransaction =
+        Transaction.builder()
+            .type(TransactionType.FRONTIER)
+            .chainId(BigInteger.valueOf(1337))
+            .gasLimit(60000)
+            .gasPrice(Wei.of(1000))
+            .nonce(0)
+            .payload(PRIVACY_TRANSACTION_PAYLOAD)
+            .to(DEFAULT_PRIVACY)
+            .value(Wei.ZERO)
+            .signAndBuild(KEY_PAIR);
 
     // Create Storage
     final Path dataDir = folder.newFolder().toPath();
 
     // Configure Privacy
+    EnclaveFactory enclaveFactory = mock(EnclaveFactory.class);
+    when(enclaveFactory.createVertxEnclave(any())).thenReturn(mockEnclave);
+
     privacyParameters =
         new PrivacyParameters.Builder()
             .setEnabled(true)
             .setStorageProvider(createKeyValueStorageProvider())
-            .setEnclaveUrl(enclave.clientUrl())
-            .setEnclaveFactory(new EnclaveFactory(Vertx.vertx()))
+            .setEnclaveUrl(URI.create("http//1.1.1.1:1234"))
+            .setEnclaveFactory(enclaveFactory)
             .build();
+
     privacyParameters.setPrivacyUserId(ENCLAVE_PUBLIC_KEY.toBase64String());
     privacyController = mock(RestrictedDefaultPrivacyController.class);
-    when(privacyController.findOffChainPrivacyGroupByGroupId(any(), any()))
+    when(privacyController.findPrivacyGroupByGroupId(any(), any()))
         .thenReturn(Optional.of(new PrivacyGroup()));
 
     privateStateRootResolver =
@@ -175,7 +193,11 @@ public class PrivacyReorgTest {
             .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
             .storageProvider(new InMemoryKeyValueStorageProvider())
             .networkId(BigInteger.ONE)
-            .miningParameters(new MiningParametersTestBuilder().enabled(false).build())
+            .miningParameters(
+                new MiningParameters.Builder()
+                    .minTransactionGasPrice(Wei.of(1000))
+                    .enabled(false)
+                    .build())
             .nodeKey(NodeKeyUtils.generate())
             .metricsSystem(new NoOpMetricsSystem())
             .dataDirectory(dataDir)
@@ -183,12 +205,8 @@ public class PrivacyReorgTest {
             .privacyParameters(privacyParameters)
             .transactionPoolConfiguration(TransactionPoolConfiguration.DEFAULT)
             .gasLimitCalculator(GasLimitCalculator.constant())
+            .evmConfiguration(EvmConfiguration.DEFAULT)
             .build();
-  }
-
-  @After
-  public void tearDown() {
-    enclave.stop();
   }
 
   @Test
@@ -198,13 +216,11 @@ public class PrivacyReorgTest {
     final DefaultBlockchain blockchain = (DefaultBlockchain) protocolContext.getBlockchain();
     final PrivateStateStorage privateStateStorage = privacyParameters.getPrivateStateStorage();
 
-    final Transaction privateMarkerTransaction =
-        buildMarkerTransaction(getEnclaveKey(enclave.clientUrl()));
     final Block firstBlock =
         gen.block(
             getBlockOptionsWithTransaction(
                 blockchain.getGenesisBlock(),
-                privateMarkerTransaction,
+                privacyMarkerTransaction,
                 FIRST_BLOCK_WITH_SINGLE_TRANSACTION_STATE_ROOT));
 
     appendBlock(besuController, blockchain, protocolContext, firstBlock);
@@ -243,7 +259,7 @@ public class PrivacyReorgTest {
         gen.block(
             getBlockOptionsWithTransaction(
                 blockchain.getGenesisBlock(),
-                buildMarkerTransaction(getEnclaveKey(enclave.clientUrl())),
+                privacyMarkerTransaction,
                 FIRST_BLOCK_WITH_SINGLE_TRANSACTION_STATE_ROOT));
 
     appendBlock(besuController, blockchain, protocolContext, firstBlock);
@@ -282,9 +298,7 @@ public class PrivacyReorgTest {
     final Block secondBlock =
         gen.block(
             getBlockOptionsWithTransaction(
-                firstBlock,
-                buildMarkerTransaction(getEnclaveKey(enclave.clientUrl())),
-                secondBlockStateRoot));
+                firstBlock, privacyMarkerTransaction, secondBlockStateRoot));
 
     appendBlock(besuController, blockchain, protocolContext, firstBlock);
     appendBlock(besuController, blockchain, protocolContext, secondBlock);
@@ -331,7 +345,7 @@ public class PrivacyReorgTest {
         gen.block(
             getBlockOptionsWithTransaction(
                 blockchain.getGenesisBlock(),
-                buildMarkerTransaction(getEnclaveKey(enclave.clientUrl())),
+                privacyMarkerTransaction,
                 FIRST_BLOCK_WITH_SINGLE_TRANSACTION_STATE_ROOT));
 
     appendBlock(besuController, blockchain, protocolContext, firstBlock);
@@ -378,7 +392,7 @@ public class PrivacyReorgTest {
         gen.block(
             getBlockOptionsWithTransactionAndDifficulty(
                 secondForkBlock,
-                buildMarkerTransaction(getEnclaveKey(enclave.clientUrl())),
+                privacyMarkerTransaction,
                 secondForkBlock.getHeader().getDifficulty().plus(10L),
                 thirdForkBlockStateRoot));
 
@@ -404,62 +418,6 @@ public class PrivacyReorgTest {
 
   private PrivacyStorageProvider createKeyValueStorageProvider() {
     return new InMemoryPrivacyStorageProvider();
-  }
-
-  private Bytes getEnclaveKey(final URI enclaveURI) {
-    final Enclave enclave = new EnclaveFactory(Vertx.vertx()).createVertxEnclave(enclaveURI);
-    final SendResponse sendResponse =
-        sendRequest(enclave, PRIVATE_TRANSACTION, ENCLAVE_PUBLIC_KEY.toBase64String());
-    final Bytes payload = Bytes.fromBase64String(sendResponse.getKey());
-
-    // If the key has 0 bytes generate a new key.
-    // This is to keep the gasUsed constant allowing
-    // hard-coded receipt roots in the block headers
-    for (int i = 0; i < payload.size(); i++) {
-      if (payload.get(i) == 0) {
-        return getEnclaveKey(enclaveURI);
-      }
-    }
-
-    return payload;
-  }
-
-  private SendResponse sendRequest(
-      final Enclave enclave,
-      final PrivateTransaction privateTransaction,
-      final String privacyUserId) {
-    final BytesValueRLPOutput rlpOutput = new BytesValueRLPOutput();
-    privateTransaction.writeTo(rlpOutput);
-    final String payload = rlpOutput.encoded().toBase64String();
-
-    if (privateTransaction.getPrivacyGroupId().isPresent()) {
-      return enclave.send(
-          payload, privacyUserId, privateTransaction.getPrivacyGroupId().get().toBase64String());
-    } else {
-      final List<String> privateFor =
-          privateTransaction.getPrivateFor().get().stream()
-              .map(Bytes::toBase64String)
-              .collect(Collectors.toList());
-
-      if (privateFor.isEmpty()) {
-        privateFor.add(privateTransaction.getPrivateFrom().toBase64String());
-      }
-      return enclave.send(
-          payload, privateTransaction.getPrivateFrom().toBase64String(), privateFor);
-    }
-  }
-
-  private Transaction buildMarkerTransaction(final Bytes payload) {
-    return Transaction.builder()
-        .type(TransactionType.FRONTIER)
-        .chainId(BigInteger.valueOf(1337))
-        .gasLimit(60000)
-        .gasPrice(Wei.of(1000))
-        .nonce(0)
-        .payload(payload)
-        .to(Address.DEFAULT_PRIVACY)
-        .value(Wei.ZERO)
-        .signAndBuild(KEY_PAIR);
   }
 
   private void assertPrivateStateRoot(

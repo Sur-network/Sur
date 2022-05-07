@@ -21,26 +21,33 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import org.hyperledger.besu.config.BftConfigOptions;
 import org.hyperledger.besu.config.GenesisConfigFile;
+import org.hyperledger.besu.config.GenesisConfigOptions;
+import org.hyperledger.besu.consensus.common.ForkSpec;
+import org.hyperledger.besu.consensus.common.ForksSchedule;
+import org.hyperledger.besu.consensus.common.bft.BaseBftProtocolSchedule;
 import org.hyperledger.besu.consensus.common.bft.BftBlockHashing;
 import org.hyperledger.besu.consensus.common.bft.BftExtraData;
-import org.hyperledger.besu.consensus.common.bft.BftProtocolSchedule;
 import org.hyperledger.besu.consensus.common.bft.blockcreation.BftBlockCreator;
 import org.hyperledger.besu.consensus.ibft.IbftBlockHeaderValidationRulesetFactory;
 import org.hyperledger.besu.consensus.ibft.IbftExtraDataCodec;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.AddressHelpers;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
-import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.eth.transactions.PendingTransactions;
+import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolConfiguration;
+import org.hyperledger.besu.ethereum.eth.transactions.sorter.GasPricePendingTransactionsSorter;
 import org.hyperledger.besu.ethereum.mainnet.BlockHeaderValidator;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.testutil.TestClock;
@@ -78,20 +85,37 @@ public class BftBlockCreatorTest {
     }
 
     final IbftExtraDataCodec bftExtraDataEncoder = new IbftExtraDataCodec();
+
+    final BaseBftProtocolSchedule bftProtocolSchedule =
+        new BaseBftProtocolSchedule() {
+          @Override
+          public BlockHeaderValidator.Builder createBlockHeaderRuleset(
+              final BftConfigOptions config, final FeeMarket feeMarket) {
+            return IbftBlockHeaderValidationRulesetFactory.blockHeaderValidator(
+                5, Optional.empty());
+          }
+        };
+    final GenesisConfigOptions configOptions =
+        GenesisConfigFile.fromConfig("{\"config\": {\"spuriousDragonBlock\":0}}")
+            .getConfigOptions();
+    final ForksSchedule<BftConfigOptions> forksSchedule =
+        new ForksSchedule<>(List.of(new ForkSpec<>(0, configOptions.getBftConfigOptions())));
     final ProtocolSchedule protocolSchedule =
-        BftProtocolSchedule.create(
-            GenesisConfigFile.fromConfig("{\"config\": {\"spuriousDragonBlock\":0}}")
-                .getConfigOptions(),
-            IbftBlockHeaderValidationRulesetFactory::blockHeaderValidator,
-            bftExtraDataEncoder);
+        bftProtocolSchedule.createProtocolSchedule(
+            configOptions,
+            forksSchedule,
+            PrivacyParameters.DEFAULT,
+            false,
+            bftExtraDataEncoder,
+            EvmConfiguration.DEFAULT);
     final ProtocolContext protContext =
         new ProtocolContext(
             blockchain,
             createInMemoryWorldStateArchive(),
             setupContextWithBftExtraDataEncoder(initialValidatorList, bftExtraDataEncoder));
 
-    final PendingTransactions pendingTransactions =
-        new PendingTransactions(
+    final GasPricePendingTransactionsSorter pendingTransactions =
+        new GasPricePendingTransactionsSorter(
             TransactionPoolConfiguration.DEFAULT_TX_RETENTION_HOURS,
             1,
             5,
@@ -103,6 +127,7 @@ public class BftBlockCreatorTest {
     final BftBlockCreator blockCreator =
         new BftBlockCreator(
             initialValidatorList.get(0),
+            () -> Optional.of(10_000_000L),
             parent ->
                 bftExtraDataEncoder.encode(
                     new BftExtraData(
@@ -114,7 +139,6 @@ public class BftBlockCreatorTest {
             pendingTransactions,
             protContext,
             protocolSchedule,
-            parentGasLimit -> parentGasLimit,
             Wei.ZERO,
             0.8,
             parentHeader,
@@ -125,7 +149,9 @@ public class BftBlockCreatorTest {
     final Block block = blockCreator.createBlock(parentHeader.getTimestamp() + 1);
 
     final BlockHeaderValidator rules =
-        IbftBlockHeaderValidationRulesetFactory.blockHeaderValidator(secondsBetweenBlocks).build();
+        IbftBlockHeaderValidationRulesetFactory.blockHeaderValidator(
+                secondsBetweenBlocks, Optional.empty())
+            .build();
 
     // NOTE: The header will not contain commit seals, so can only do light validation on header.
     final boolean validationResult =

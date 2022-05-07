@@ -16,15 +16,14 @@ package org.hyperledger.besu.ethereum.mainnet;
 
 import org.hyperledger.besu.config.GenesisConfigFile;
 import org.hyperledger.besu.ethereum.core.ProtocolScheduleFixture;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 
 import java.nio.charset.StandardCharsets;
 
 import com.google.common.io.Resources;
 import org.assertj.core.api.Assertions;
-import org.junit.Ignore;
 import org.junit.Test;
 
-@Ignore
 public class MainnetProtocolScheduleTest {
 
   @Test
@@ -48,13 +47,16 @@ public class MainnetProtocolScheduleTest {
     Assertions.assertThat(sched.getByBlockNumber(9_200_000L).getName()).isEqualTo("MuirGlacier");
     Assertions.assertThat(sched.getByBlockNumber(12_244_000L).getName()).isEqualTo("Berlin");
     Assertions.assertThat(sched.getByBlockNumber(12_965_000L).getName()).isEqualTo("London");
-    Assertions.assertThat(sched.getByBlockNumber(Long.MAX_VALUE).getName()).isEqualTo("London");
+    Assertions.assertThat(sched.getByBlockNumber(13_773_000L).getName()).isEqualTo("ArrowGlacier");
+    Assertions.assertThat(sched.getByBlockNumber(Long.MAX_VALUE).getName())
+        .isEqualTo("ArrowGlacier");
   }
 
   @Test
   public void shouldOnlyUseFrontierWhenEmptyJsonConfigIsUsed() {
     final ProtocolSchedule sched =
-        MainnetProtocolSchedule.fromConfig(GenesisConfigFile.fromConfig("{}").getConfigOptions());
+        MainnetProtocolSchedule.fromConfig(
+            GenesisConfigFile.fromConfig("{}").getConfigOptions(), EvmConfiguration.DEFAULT);
     Assertions.assertThat(sched.getByBlockNumber(1L).getName()).isEqualTo("Frontier");
     Assertions.assertThat(sched.getByBlockNumber(Long.MAX_VALUE).getName()).isEqualTo("Frontier");
   }
@@ -64,7 +66,8 @@ public class MainnetProtocolScheduleTest {
     final String json =
         "{\"config\": {\"homesteadBlock\": 2, \"daoForkBlock\": 3, \"eip150Block\": 14, \"eip158Block\": 15, \"byzantiumBlock\": 16, \"constantinopleBlock\": 18, \"petersburgBlock\": 19, \"chainId\":1234}}";
     final ProtocolSchedule sched =
-        MainnetProtocolSchedule.fromConfig(GenesisConfigFile.fromConfig(json).getConfigOptions());
+        MainnetProtocolSchedule.fromConfig(
+            GenesisConfigFile.fromConfig(json).getConfigOptions(), EvmConfiguration.DEFAULT);
     Assertions.assertThat(sched.getByBlockNumber(1).getName()).isEqualTo("Frontier");
     Assertions.assertThat(sched.getByBlockNumber(2).getName()).isEqualTo("Homestead");
     Assertions.assertThat(sched.getByBlockNumber(3).getName()).isEqualTo("DaoRecoveryInit");
@@ -87,7 +90,8 @@ public class MainnetProtocolScheduleTest {
         .isThrownBy(
             () ->
                 MainnetProtocolSchedule.fromConfig(
-                    GenesisConfigFile.fromConfig(json).getConfigOptions()));
+                    GenesisConfigFile.fromConfig(json).getConfigOptions(),
+                    EvmConfiguration.DEFAULT));
   }
 
   @Test
@@ -97,7 +101,8 @@ public class MainnetProtocolScheduleTest {
             GenesisConfigFile.fromConfig(
                     Resources.toString(
                         this.getClass().getResource("/ropsten.json"), StandardCharsets.UTF_8))
-                .getConfigOptions());
+                .getConfigOptions(),
+            EvmConfiguration.DEFAULT);
     Assertions.assertThat(sched.getByBlockNumber(0L).getName()).isEqualTo("TangerineWhistle");
     Assertions.assertThat(sched.getByBlockNumber(1L).getName()).isEqualTo("TangerineWhistle");
     Assertions.assertThat(sched.getByBlockNumber(10L).getName()).isEqualTo("SpuriousDragon");
@@ -118,7 +123,8 @@ public class MainnetProtocolScheduleTest {
             GenesisConfigFile.fromConfig(
                     Resources.toString(
                         this.getClass().getResource("/goerli.json"), StandardCharsets.UTF_8))
-                .getConfigOptions());
+                .getConfigOptions(),
+            EvmConfiguration.DEFAULT);
     Assertions.assertThat(sched.getByBlockNumber(0L).getName()).isEqualTo("Petersburg");
     Assertions.assertThat(sched.getByBlockNumber(1_561_651L).getName()).isEqualTo("Istanbul");
     Assertions.assertThat(sched.getByBlockNumber(4_460_644L).getName()).isEqualTo("Berlin");
@@ -133,7 +139,8 @@ public class MainnetProtocolScheduleTest {
             GenesisConfigFile.fromConfig(
                     Resources.toString(
                         this.getClass().getResource("/rinkeby.json"), StandardCharsets.UTF_8))
-                .getConfigOptions());
+                .getConfigOptions(),
+            EvmConfiguration.DEFAULT);
     Assertions.assertThat(sched.getByBlockNumber(0L).getName()).isEqualTo("Frontier");
     Assertions.assertThat(sched.getByBlockNumber(1L).getName()).isEqualTo("Homestead");
     Assertions.assertThat(sched.getByBlockNumber(2L).getName()).isEqualTo("TangerineWhistle");

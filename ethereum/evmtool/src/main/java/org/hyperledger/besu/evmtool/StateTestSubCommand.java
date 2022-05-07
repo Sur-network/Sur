@@ -19,14 +19,10 @@ package org.hyperledger.besu.evmtool;
 import static org.hyperledger.besu.ethereum.referencetests.ReferenceTestProtocolSchedules.shouldClearEmptyAccounts;
 import static org.hyperledger.besu.evmtool.StateTestSubCommand.COMMAND_NAME;
 
-import org.hyperledger.besu.ethereum.core.Account;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.Hash;
-import org.hyperledger.besu.ethereum.core.Log;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Transaction;
-import org.hyperledger.besu.ethereum.core.WorldState;
-import org.hyperledger.besu.ethereum.core.WorldUpdater;
 import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
@@ -37,10 +33,15 @@ import org.hyperledger.besu.ethereum.referencetests.ReferenceTestBlockchain;
 import org.hyperledger.besu.ethereum.referencetests.ReferenceTestProtocolSchedules;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.vm.BlockHashLookup;
-import org.hyperledger.besu.ethereum.vm.OperationTracer;
-import org.hyperledger.besu.ethereum.vm.StandardJsonTracer;
 import org.hyperledger.besu.ethereum.worldstate.DefaultMutableWorldState;
+import org.hyperledger.besu.evm.account.Account;
+import org.hyperledger.besu.evm.log.Log;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
+import org.hyperledger.besu.evm.tracing.StandardJsonTracer;
+import org.hyperledger.besu.evm.worldstate.WorldState;
+import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.evmtool.exception.UnsupportedForkException;
+import org.hyperledger.besu.util.Log4j2ConfiguratorUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -59,10 +60,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Stopwatch;
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.apache.tuweni.units.bigints.UInt256;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -74,7 +74,7 @@ import picocli.CommandLine.ParentCommand;
     mixinStandardHelpOptions = true,
     versionProvider = VersionProvider.class)
 public class StateTestSubCommand implements Runnable {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(StateTestSubCommand.class);
 
   public static final String COMMAND_NAME = "state-test";
 
@@ -124,7 +124,7 @@ public class StateTestSubCommand implements Runnable {
                   objectMapper.readValue(file, javaType);
               executeStateTest(generalStateTests);
             } catch (final JsonProcessingException jpe) {
-              System.out.println("File content error :" + jpe.toString());
+              System.out.println("File content error :" + jpe);
             }
           } else {
             System.out.println("File not found:" + fileName);
@@ -138,7 +138,7 @@ public class StateTestSubCommand implements Runnable {
         }
       }
     } catch (final IOException e) {
-      LOG.fatal(e);
+      LOG.error("Unable to read state file", e);
     }
   }
 
@@ -152,10 +152,11 @@ public class StateTestSubCommand implements Runnable {
   }
 
   private void traceTestSpecs(final String test, final List<GeneralStateTestCaseEipSpec> specs) {
-    Configurator.setLevel(
+    Log4j2ConfiguratorUtil.setLevel(
         "org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder", Level.OFF);
     final var referenceTestProtocolSchedules = ReferenceTestProtocolSchedules.create();
-    Configurator.setLevel("org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder", null);
+    Log4j2ConfiguratorUtil.setLevel(
+        "org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder", null);
 
     final OperationTracer tracer = // You should have picked Mercy.
         parentCommand.showJsonResults
@@ -215,10 +216,8 @@ public class StateTestSubCommand implements Runnable {
 
       final ObjectNode summaryLine = objectMapper.createObjectNode();
       summaryLine.put("output", result.getOutput().toUnprefixedHexString());
-      summaryLine.put(
-          "gasUsed",
-          StandardJsonTracer.shortNumber(
-              UInt256.valueOf(transaction.getGasLimit() - result.getGasRemaining())));
+      UInt256 gasUsed = UInt256.valueOf(transaction.getGasLimit() - result.getGasRemaining());
+      summaryLine.put("gasUsed", StandardJsonTracer.shortNumber(gasUsed));
       summaryLine.put("time", timer.elapsed(TimeUnit.NANOSECONDS));
 
       // Check the world state root hash.

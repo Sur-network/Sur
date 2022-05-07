@@ -16,8 +16,10 @@ package org.hyperledger.besu.ethereum.eth.manager;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Difficulty;
-import org.hyperledger.besu.ethereum.core.Hash;
+import org.hyperledger.besu.ethereum.eth.EthProtocol;
+import org.hyperledger.besu.ethereum.eth.SnapProtocol;
 import org.hyperledger.besu.ethereum.eth.messages.EthPV62;
 import org.hyperledger.besu.ethereum.eth.messages.EthPV63;
 import org.hyperledger.besu.ethereum.eth.messages.EthPV65;
@@ -26,6 +28,11 @@ import org.hyperledger.besu.ethereum.eth.messages.GetBlockHeadersMessage;
 import org.hyperledger.besu.ethereum.eth.messages.GetNodeDataMessage;
 import org.hyperledger.besu.ethereum.eth.messages.GetPooledTransactionsMessage;
 import org.hyperledger.besu.ethereum.eth.messages.GetReceiptsMessage;
+import org.hyperledger.besu.ethereum.eth.messages.snap.GetAccountRangeMessage;
+import org.hyperledger.besu.ethereum.eth.messages.snap.GetByteCodesMessage;
+import org.hyperledger.besu.ethereum.eth.messages.snap.GetStorageRangeMessage;
+import org.hyperledger.besu.ethereum.eth.messages.snap.GetTrieNodes;
+import org.hyperledger.besu.ethereum.eth.messages.snap.SnapV1;
 import org.hyperledger.besu.ethereum.eth.peervalidation.PeerValidator;
 import org.hyperledger.besu.ethereum.p2p.rlpx.connections.PeerConnection;
 import org.hyperledger.besu.ethereum.p2p.rlpx.connections.PeerConnection.PeerNotConnected;
@@ -36,9 +43,11 @@ import org.hyperledger.besu.plugin.services.permissioning.NodeMessagePermissioni
 
 import java.time.Clock;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,12 +56,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class EthPeer {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(EthPeer.class);
 
   private static final int MAX_OUTSTANDING_REQUESTS = 5;
 
@@ -60,26 +69,47 @@ public class EthPeer {
 
   private final int maxTrackedSeenBlocks = 300;
 
-  private final Set<Hash> knownBlocks;
+  private final Set<Hash> knownBlocks =
+      Collections.newSetFromMap(
+          Collections.synchronizedMap(
+              new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(final Map.Entry<Hash, Boolean> eldest) {
+                  return size() > maxTrackedSeenBlocks;
+                }
+              }));
   private final String protocolName;
   private final Clock clock;
   private final List<NodeMessagePermissioningProvider> permissioningProviders;
-  private final ChainState chainHeadState;
+  private final ChainState chainHeadState = new ChainState();
   private final AtomicBoolean statusHasBeenSentToPeer = new AtomicBoolean(false);
   private final AtomicBoolean statusHasBeenReceivedFromPeer = new AtomicBoolean(false);
   private final AtomicBoolean fullyValidated = new AtomicBoolean(false);
   private final AtomicInteger lastProtocolVersion = new AtomicInteger(0);
 
   private volatile long lastRequestTimestamp = 0;
-  private final RequestManager headersRequestManager = new RequestManager(this);
-  private final RequestManager bodiesRequestManager = new RequestManager(this);
-  private final RequestManager receiptsRequestManager = new RequestManager(this);
-  private final RequestManager nodeDataRequestManager = new RequestManager(this);
-  private final RequestManager pooledTransactionsRequestManager = new RequestManager(this);
+
+  private final Map<String, Map<Integer, RequestManager>> requestManagers;
 
   private final AtomicReference<Consumer<EthPeer>> onStatusesExchanged = new AtomicReference<>();
   private final PeerReputation reputation = new PeerReputation();
   private final Map<PeerValidator, Boolean> validationStatus = new ConcurrentHashMap<>();
+
+  private static final Map<Integer, Integer> roundMessages;
+
+  static {
+    roundMessages = new HashMap<>();
+    roundMessages.put(EthPV62.BLOCK_HEADERS, EthPV62.GET_BLOCK_HEADERS);
+    roundMessages.put(EthPV62.BLOCK_BODIES, EthPV62.GET_BLOCK_BODIES);
+    roundMessages.put(EthPV63.RECEIPTS, EthPV63.GET_RECEIPTS);
+    roundMessages.put(EthPV63.NODE_DATA, EthPV63.GET_NODE_DATA);
+    roundMessages.put(EthPV65.POOLED_TRANSACTIONS, EthPV65.GET_POOLED_TRANSACTIONS);
+
+    roundMessages.put(SnapV1.ACCOUNT_RANGE, SnapV1.GET_ACCOUNT_RANGE);
+    roundMessages.put(SnapV1.STORAGE_RANGE, SnapV1.GET_STORAGE_RANGE);
+    roundMessages.put(SnapV1.BYTECODES, SnapV1.GET_BYTECODES);
+    roundMessages.put(SnapV1.TRIE_NODES, SnapV1.GET_TRIE_NODES);
+  }
 
   @VisibleForTesting
   public EthPeer(
@@ -93,21 +123,47 @@ public class EthPeer {
     this.protocolName = protocolName;
     this.clock = clock;
     this.permissioningProviders = permissioningProviders;
-    knownBlocks =
-        Collections.newSetFromMap(
-            Collections.synchronizedMap(
-                new LinkedHashMap<>(16, 0.75f, true) {
-                  @Override
-                  protected boolean removeEldestEntry(final Map.Entry<Hash, Boolean> eldest) {
-                    return size() > maxTrackedSeenBlocks;
-                  }
-                }));
-    this.chainHeadState = new ChainState();
     this.onStatusesExchanged.set(onStatusesExchanged);
-    for (final PeerValidator peerValidator : peerValidators) {
-      validationStatus.put(peerValidator, false);
-    }
+    peerValidators.forEach(peerValidator -> validationStatus.put(peerValidator, false));
     fullyValidated.set(peerValidators.isEmpty());
+
+    this.requestManagers = new HashMap<>();
+
+    initEthRequestManagers();
+    initSnapRequestManagers();
+  }
+
+  private void initEthRequestManagers() {
+    final boolean supportsRequestId =
+        getAgreedCapabilities().stream().anyMatch(EthProtocol::isEth66Compatible);
+    // eth protocol
+    requestManagers.put(
+        protocolName,
+        Map.ofEntries(
+            Map.entry(
+                EthPV62.GET_BLOCK_HEADERS,
+                new RequestManager(this, supportsRequestId, protocolName)),
+            Map.entry(
+                EthPV62.GET_BLOCK_BODIES,
+                new RequestManager(this, supportsRequestId, protocolName)),
+            Map.entry(
+                EthPV63.GET_RECEIPTS, new RequestManager(this, supportsRequestId, protocolName)),
+            Map.entry(
+                EthPV63.GET_NODE_DATA, new RequestManager(this, supportsRequestId, protocolName)),
+            Map.entry(
+                EthPV65.GET_POOLED_TRANSACTIONS,
+                new RequestManager(this, supportsRequestId, protocolName))));
+  }
+
+  private void initSnapRequestManagers() {
+    // snap protocol
+    requestManagers.put(
+        SnapProtocol.NAME,
+        Map.ofEntries(
+            Map.entry(SnapV1.GET_ACCOUNT_RANGE, new RequestManager(this, true, SnapProtocol.NAME)),
+            Map.entry(SnapV1.GET_STORAGE_RANGE, new RequestManager(this, true, SnapProtocol.NAME)),
+            Map.entry(SnapV1.GET_BYTECODES, new RequestManager(this, true, SnapProtocol.NAME)),
+            Map.entry(SnapV1.GET_TRIE_NODES, new RequestManager(this, true, SnapProtocol.NAME))));
   }
 
   public void markValidated(final PeerValidator validator) {
@@ -154,38 +210,42 @@ public class EthPeer {
   }
 
   public RequestManager.ResponseStream send(final MessageData messageData) throws PeerNotConnected {
+    return send(messageData, this.protocolName);
+  }
+
+  public RequestManager.ResponseStream send(
+      final MessageData messageData, final String protocolName) throws PeerNotConnected {
+    if (connection.getAgreedCapabilities().stream()
+        .noneMatch(capability -> capability.getName().equalsIgnoreCase(protocolName))) {
+      LOG.debug("Protocol {} unavailable for this peer ", protocolName);
+      return null;
+    }
     if (permissioningProviders.stream()
         .anyMatch(p -> !p.isMessagePermitted(connection.getRemoteEnode(), messageData.getCode()))) {
       LOG.info(
           "Permissioning blocked sending of message code {} to {}",
           messageData.getCode(),
           connection.getRemoteEnode());
-      LOG.debug(
-          "Permissioning blocked by providers {}",
-          () ->
-              permissioningProviders.stream()
-                  .filter(
-                      p ->
-                          !p.isMessagePermitted(
-                              connection.getRemoteEnode(), messageData.getCode())));
+      if (LOG.isDebugEnabled()) {
+        LOG.debug(
+            "Permissioning blocked by providers {}",
+            permissioningProviders.stream()
+                .filter(
+                    p ->
+                        !p.isMessagePermitted(connection.getRemoteEnode(), messageData.getCode())));
+      }
       return null;
     }
 
-    switch (messageData.getCode()) {
-      case EthPV62.GET_BLOCK_HEADERS:
-        return sendRequest(headersRequestManager, messageData);
-      case EthPV62.GET_BLOCK_BODIES:
-        return sendRequest(bodiesRequestManager, messageData);
-      case EthPV63.GET_RECEIPTS:
-        return sendRequest(receiptsRequestManager, messageData);
-      case EthPV63.GET_NODE_DATA:
-        return sendRequest(nodeDataRequestManager, messageData);
-      case EthPV65.GET_POOLED_TRANSACTIONS:
-        return sendRequest(pooledTransactionsRequestManager, messageData);
-      default:
-        connection.sendForProtocol(protocolName, messageData);
-        return null;
+    if (requestManagers.containsKey(protocolName)) {
+      final Map<Integer, RequestManager> managers = this.requestManagers.get(protocolName);
+      if (managers.containsKey(messageData.getCode())) {
+        return sendRequest(managers.get(messageData.getCode()), messageData);
+      }
     }
+
+    connection.sendForProtocol(protocolName, messageData);
+    return null;
   }
 
   public RequestManager.ResponseStream getHeadersByHash(
@@ -193,7 +253,9 @@ public class EthPeer {
       throws PeerNotConnected {
     final GetBlockHeadersMessage message =
         GetBlockHeadersMessage.create(hash, maxHeaders, skip, reverse);
-    return sendRequest(headersRequestManager, message);
+    final RequestManager requestManager =
+        requestManagers.get(protocolName).get(EthPV62.GET_BLOCK_HEADERS);
+    return sendRequest(requestManager, message);
   }
 
   public RequestManager.ResponseStream getHeadersByNumber(
@@ -201,110 +263,112 @@ public class EthPeer {
       throws PeerNotConnected {
     final GetBlockHeadersMessage message =
         GetBlockHeadersMessage.create(blockNumber, maxHeaders, skip, reverse);
-    return sendRequest(headersRequestManager, message);
+    return sendRequest(requestManagers.get(protocolName).get(EthPV62.GET_BLOCK_HEADERS), message);
+  }
+
+  public RequestManager.ResponseStream getBodies(final List<Hash> blockHashes)
+      throws PeerNotConnected {
+    final GetBlockBodiesMessage message = GetBlockBodiesMessage.create(blockHashes);
+    return sendRequest(requestManagers.get(protocolName).get(EthPV62.GET_BLOCK_BODIES), message);
+  }
+
+  public RequestManager.ResponseStream getReceipts(final List<Hash> blockHashes)
+      throws PeerNotConnected {
+    final GetReceiptsMessage message = GetReceiptsMessage.create(blockHashes);
+    return sendRequest(requestManagers.get(protocolName).get(EthPV63.GET_RECEIPTS), message);
+  }
+
+  public RequestManager.ResponseStream getNodeData(final Iterable<Hash> nodeHashes)
+      throws PeerNotConnected {
+    final GetNodeDataMessage message = GetNodeDataMessage.create(nodeHashes);
+    return sendRequest(requestManagers.get(protocolName).get(EthPV63.GET_NODE_DATA), message);
+  }
+
+  public RequestManager.ResponseStream getPooledTransactions(final List<Hash> hashes)
+      throws PeerNotConnected {
+    final GetPooledTransactionsMessage message = GetPooledTransactionsMessage.create(hashes);
+    return sendRequest(
+        requestManagers.get(protocolName).get(EthPV65.GET_POOLED_TRANSACTIONS), message);
+  }
+
+  public RequestManager.ResponseStream getSnapAccountRange(final GetAccountRangeMessage message)
+      throws PeerNotConnected {
+    return sendRequest(
+        requestManagers.get(SnapProtocol.NAME).get(SnapV1.GET_ACCOUNT_RANGE), message);
+  }
+
+  public RequestManager.ResponseStream getSnapStorageRange(final GetStorageRangeMessage message)
+      throws PeerNotConnected {
+    return sendRequest(
+        requestManagers.get(SnapProtocol.NAME).get(SnapV1.GET_STORAGE_RANGE), message);
+  }
+
+  public RequestManager.ResponseStream getSnapBytecode(final GetByteCodesMessage message)
+      throws PeerNotConnected {
+    return sendRequest(requestManagers.get(SnapProtocol.NAME).get(SnapV1.GET_BYTECODES), message);
+  }
+
+  public RequestManager.ResponseStream getSnapTrieNode(final GetTrieNodes message)
+      throws PeerNotConnected {
+    return sendRequest(requestManagers.get(SnapProtocol.NAME).get(SnapV1.GET_TRIE_NODES), message);
   }
 
   private RequestManager.ResponseStream sendRequest(
       final RequestManager requestManager, final MessageData messageData) throws PeerNotConnected {
     lastRequestTimestamp = clock.millis();
     return requestManager.dispatchRequest(
-        () -> connection.sendForProtocol(protocolName, messageData));
+        msgData -> connection.sendForProtocol(requestManager.getProtocolName(), msgData),
+        messageData);
   }
 
-  public RequestManager.ResponseStream getBodies(final List<Hash> blockHashes)
-      throws PeerNotConnected {
-    final GetBlockBodiesMessage message = GetBlockBodiesMessage.create(blockHashes);
-    return sendRequest(bodiesRequestManager, message);
-  }
-
-  public RequestManager.ResponseStream getReceipts(final List<Hash> blockHashes)
-      throws PeerNotConnected {
-    final GetReceiptsMessage message = GetReceiptsMessage.create(blockHashes);
-    return sendRequest(receiptsRequestManager, message);
-  }
-
-  public RequestManager.ResponseStream getNodeData(final Iterable<Hash> nodeHashes)
-      throws PeerNotConnected {
-    final GetNodeDataMessage message = GetNodeDataMessage.create(nodeHashes);
-    return sendRequest(nodeDataRequestManager, message);
-  }
-
-  public RequestManager.ResponseStream getPooledTransactions(final List<Hash> hashes)
-      throws PeerNotConnected {
-    final GetPooledTransactionsMessage message = GetPooledTransactionsMessage.create(hashes);
-    return sendRequest(pooledTransactionsRequestManager, message);
-  }
-
-  boolean validateReceivedMessage(final EthMessage message) {
+  public boolean validateReceivedMessage(final EthMessage message, final String protocolName) {
     checkArgument(message.getPeer().equals(this), "Mismatched message sent to peer for dispatch");
-    switch (message.getData().getCode()) {
-      case EthPV62.BLOCK_HEADERS:
-        if (headersRequestManager.outstandingRequests() == 0) {
-          LOG.warn("Unsolicited headers received.");
-          return false;
-        }
-        break;
-      case EthPV62.BLOCK_BODIES:
-        if (bodiesRequestManager.outstandingRequests() == 0) {
-          LOG.warn("Unsolicited bodies received.");
-          return false;
-        }
-        break;
-      case EthPV63.RECEIPTS:
-        if (receiptsRequestManager.outstandingRequests() == 0) {
-          LOG.warn("Unsolicited receipts received.");
-          return false;
-        }
-        break;
-      case EthPV63.NODE_DATA:
-        if (nodeDataRequestManager.outstandingRequests() == 0) {
-          LOG.warn("Unsolicited node data received.");
-          return false;
-        }
-        break;
-      case EthPV65.POOLED_TRANSACTIONS:
-        if (pooledTransactionsRequestManager.outstandingRequests() == 0) {
-          LOG.warn("Unsolicited pooling transactions received.");
-          return false;
-        }
-        break;
-      default:
-        // Nothing to do
-    }
-    return true;
+    return getRequestManager(protocolName, message.getData().getCode())
+        .map(requestManager -> requestManager.outstandingRequests() != 0)
+        .orElse(true);
   }
 
   /**
    * Routes messages originating from this peer to listeners.
    *
-   * @param message the message to dispatch
+   * @param ethMessage the Eth message to dispatch
+   * @param protocolName Specific protocol name if needed
    */
-  void dispatch(final EthMessage message) {
-    checkArgument(message.getPeer().equals(this), "Mismatched message sent to peer for dispatch");
-    switch (message.getData().getCode()) {
-      case EthPV62.BLOCK_HEADERS:
-        reputation.resetTimeoutCount(EthPV62.GET_BLOCK_HEADERS);
-        headersRequestManager.dispatchResponse(message);
-        break;
-      case EthPV62.BLOCK_BODIES:
-        reputation.resetTimeoutCount(EthPV62.GET_BLOCK_BODIES);
-        bodiesRequestManager.dispatchResponse(message);
-        break;
-      case EthPV63.RECEIPTS:
-        reputation.resetTimeoutCount(EthPV63.GET_RECEIPTS);
-        receiptsRequestManager.dispatchResponse(message);
-        break;
-      case EthPV63.NODE_DATA:
-        reputation.resetTimeoutCount(EthPV63.GET_NODE_DATA);
-        nodeDataRequestManager.dispatchResponse(message);
-        break;
-      case EthPV65.POOLED_TRANSACTIONS:
-        reputation.resetTimeoutCount(EthPV65.GET_POOLED_TRANSACTIONS);
-        pooledTransactionsRequestManager.dispatchResponse(message);
-        break;
-      default:
-        // Nothing to do
+  void dispatch(final EthMessage ethMessage, final String protocolName) {
+    checkArgument(
+        ethMessage.getPeer().equals(this), "Mismatched Eth message sent to peer for dispatch");
+    final int messageCode = ethMessage.getData().getCode();
+    reputation.resetTimeoutCount(messageCode);
+
+    getRequestManager(protocolName, messageCode)
+        .ifPresentOrElse(
+            requestManager -> requestManager.dispatchResponse(ethMessage),
+            () -> {
+              LOG.trace(
+                  "Message {} not expected has just been received for {} ",
+                  messageCode,
+                  protocolName);
+            });
+  }
+
+  /**
+   * Routes messages originating from this peer to listeners.
+   *
+   * @param ethMessage the Eth message to dispatch
+   */
+  void dispatch(final EthMessage ethMessage) {
+    dispatch(ethMessage, protocolName);
+  }
+
+  private Optional<RequestManager> getRequestManager(final String protocolName, final int code) {
+    if (requestManagers.containsKey(protocolName)) {
+      final Map<Integer, RequestManager> managers = requestManagers.get(protocolName);
+      final Integer requestCode = roundMessages.getOrDefault(code, -1);
+      if (managers.containsKey(requestCode)) {
+        return Optional.of(managers.get(requestCode));
+      }
     }
+    return Optional.empty();
   }
 
   public Map<Integer, AtomicInteger> timeoutCounts() {
@@ -312,11 +376,8 @@ public class EthPeer {
   }
 
   void handleDisconnect() {
-    headersRequestManager.close();
-    bodiesRequestManager.close();
-    receiptsRequestManager.close();
-    nodeDataRequestManager.close();
-    pooledTransactionsRequestManager.close();
+    requestManagers.forEach(
+        (protocolName, map) -> map.forEach((code, requestManager) -> requestManager.close()));
   }
 
   public void registerKnownBlock(final Hash hash) {
@@ -408,11 +469,10 @@ public class EthPeer {
   }
 
   public int outstandingRequests() {
-    return headersRequestManager.outstandingRequests()
-        + bodiesRequestManager.outstandingRequests()
-        + receiptsRequestManager.outstandingRequests()
-        + nodeDataRequestManager.outstandingRequests()
-        + pooledTransactionsRequestManager.outstandingRequests();
+    return requestManagers.values().stream()
+        .flatMap(m -> m.values().stream())
+        .mapToInt(RequestManager::outstandingRequests)
+        .sum();
   }
 
   public long getLastRequestTimestamp() {

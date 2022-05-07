@@ -31,17 +31,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RunWith(Parameterized.class)
 public class EIP2124Test {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(EIP2124Test.class);
 
   @Parameters(name = "{index}: {0}")
   public static Collection<Object[]> data() {
@@ -153,7 +153,7 @@ public class EIP2124Test {
             empty()
           },
           {
-            "Mainnet // First Istanbul and first Muir Glacier block",
+            "Mainnet // First Istanbul block",
             Network.MAINNET,
             9069000L,
             ForkIdTestUtil.wantForkId("0x879d6e30", 9200000L),
@@ -161,7 +161,7 @@ public class EIP2124Test {
             empty()
           },
           {
-            "Mainnet // Last Istanbul and first Muir Glacier block",
+            "Mainnet // Last Istanbul block",
             Network.MAINNET,
             9199999L,
             ForkIdTestUtil.wantForkId("0x879d6e30", 9200000L),
@@ -172,15 +172,63 @@ public class EIP2124Test {
             "Mainnet // First Muir Glacier block",
             Network.MAINNET,
             9200000L,
-            ForkIdTestUtil.wantForkId("0xe029e991", 0L),
+            ForkIdTestUtil.wantForkId("0xe029e991", 12244000L),
             Optional.of(ForkIds.MAINNET),
             empty()
           },
           {
-            "Mainnet // Future Muir Glacier block",
+            "Mainnet // Last Muir Glacier block",
             Network.MAINNET,
-            10000000L,
-            ForkIdTestUtil.wantForkId("0xe029e991", 0L),
+            12243999L,
+            ForkIdTestUtil.wantForkId("0xe029e991", 12244000L),
+            Optional.of(ForkIds.MAINNET),
+            empty()
+          },
+          {
+            "Mainnet // First Berlin block",
+            Network.MAINNET,
+            12244000L,
+            ForkIdTestUtil.wantForkId("0x0eb440f6", 12965000L),
+            Optional.of(ForkIds.MAINNET),
+            empty()
+          },
+          {
+            "Mainnet // Last Berlin block",
+            Network.MAINNET,
+            12964999L,
+            ForkIdTestUtil.wantForkId("0x0eb440f6", 12965000L),
+            Optional.of(ForkIds.MAINNET),
+            empty()
+          },
+          {
+            "Mainnet // First London block",
+            Network.MAINNET,
+            12965000L,
+            ForkIdTestUtil.wantForkId("0xb715077d", 13773000L),
+            Optional.of(ForkIds.MAINNET),
+            empty()
+          },
+          {
+            "Mainnet // Last London block",
+            Network.MAINNET,
+            13772999L,
+            ForkIdTestUtil.wantForkId("0xb715077d", 13773000L),
+            Optional.of(ForkIds.MAINNET),
+            empty()
+          },
+          {
+            "Mainnet // First Arrow Glacier block",
+            Network.MAINNET,
+            13773000L,
+            ForkIdTestUtil.wantForkId("0x20c327fc", 0L),
+            Optional.of(ForkIds.MAINNET),
+            empty()
+          },
+          {
+            "Mainnet // Future Arrow Glacier block",
+            Network.MAINNET,
+            20000000L,
+            ForkIdTestUtil.wantForkId("0x20c327fc", 0L),
             Optional.of(ForkIds.MAINNET),
             empty()
           },

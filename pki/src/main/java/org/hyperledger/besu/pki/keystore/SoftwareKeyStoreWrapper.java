@@ -29,12 +29,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SoftwareKeyStoreWrapper extends AbstractKeyStoreWrapper {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(SoftwareKeyStoreWrapper.class);
 
   private final KeyStore keystore;
   private final transient char[] keystorePassword;
@@ -162,7 +162,8 @@ public class SoftwareKeyStoreWrapper extends AbstractKeyStoreWrapper {
       }
       return certificateChain;
     } catch (final Exception e) {
-      throw new PkiException("Failed to certificate chain for alias: " + certificateAlias, e);
+      throw new PkiException(
+          "Failed to retrieve certificate chain for alias: " + certificateAlias, e);
     }
   }
 

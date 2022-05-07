@@ -83,6 +83,13 @@ public interface RLPInput {
   int nextSize();
 
   /**
+   * Returns the offset of the next item, counting from the start of the RLP Input as a whole.
+   *
+   * @return offset from buffer start
+   */
+  int nextOffset();
+
+  /**
    * Whether the input is at the end of a currently entered list, that is if {@link #leaveList()}
    * should be the next method called.
    *
@@ -129,7 +136,7 @@ public interface RLPInput {
   void leaveListLenient();
 
   /**
-   * Reads a scalar from the input and return is as a long value.
+   * Reads a non-negative scalar from the input and return is as a long value.
    *
    * @return The next scalar item of this input as a long value.
    * @throws RLPException if the next item to read is a list, the input is at the end of its current

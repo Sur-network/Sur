@@ -17,10 +17,10 @@ package org.hyperledger.besu.ethereum.permissioning.account;
 import org.hyperledger.besu.crypto.SECPSignature;
 import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Transaction;
-import org.hyperledger.besu.ethereum.core.Wei;
 import org.hyperledger.besu.ethereum.permissioning.AccountLocalConfigPermissioningController;
 import org.hyperledger.besu.ethereum.permissioning.GoQuorumQip714Gate;
 import org.hyperledger.besu.ethereum.permissioning.LocalPermissioningConfiguration;
@@ -33,13 +33,14 @@ import org.hyperledger.besu.plugin.services.MetricsSystem;
 
 import java.util.Optional;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AccountPermissioningControllerFactory {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG =
+      LoggerFactory.getLogger(AccountPermissioningControllerFactory.class);
 
   public static Optional<AccountPermissioningController> create(
       final PermissioningConfiguration permissioningConfiguration,
@@ -164,10 +165,8 @@ public class AccountPermissioningControllerFactory {
       // We don't care about the validation result. All we need it to ensure the check doesn't fail
       transactionSmartContractPermissioningController.isPermitted(transaction);
     } catch (Exception e) {
-      final String msg =
-          "Error validating onchain account permissioning smart contract configuration";
-      LOG.error(msg + ":", e);
-      throw new IllegalStateException(msg, e);
+      throw new IllegalStateException(
+          "Error validating onchain account permissioning smart contract configuration", e);
     }
   }
 }

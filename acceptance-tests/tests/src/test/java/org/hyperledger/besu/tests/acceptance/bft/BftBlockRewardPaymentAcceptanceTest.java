@@ -16,7 +16,7 @@ package org.hyperledger.besu.tests.acceptance.bft;
 
 import static java.util.Collections.singletonList;
 
-import org.hyperledger.besu.ethereum.core.Address;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.tests.acceptance.dsl.account.Account;
 import org.hyperledger.besu.tests.acceptance.dsl.blockchain.Amount;
 import org.hyperledger.besu.tests.acceptance.dsl.node.BesuNode;
@@ -67,8 +67,12 @@ public class BftBlockRewardPaymentAcceptanceTest extends ParameterizedBftTestBas
         initialConfig
             .get()
             .replace(
-                "\"ibft2\": {",
-                "\"ibft2\": { \"miningbeneficiary\": \"" + miningBeneficiaryAddress + "\",");
+                "\"" + bftType + "\": {",
+                "\""
+                    + bftType
+                    + "\": { \"miningbeneficiary\": \""
+                    + miningBeneficiaryAddress
+                    + "\",");
 
     validator1.setGenesisConfig(configWithMiningBeneficiary);
 
@@ -76,7 +80,7 @@ public class BftBlockRewardPaymentAcceptanceTest extends ParameterizedBftTestBas
         Account.create(ethTransactions, Address.fromHexString(miningBeneficiaryAddress));
 
     // This starts a node, without executing its configGenerator
-    cluster.runNodeStart(validator1);
+    cluster.start(validator1);
     final int blockRewardEth = 5;
     final int blockToCheck = 2;
 

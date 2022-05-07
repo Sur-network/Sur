@@ -16,7 +16,7 @@
 apply plugin: 'java-library'
 
 jar {
-  archiveBaseName = 'sur-mock-p2p'
+  archiveBaseName = 'besu-mock-p2p'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,
@@ -35,7 +35,7 @@ dependencies {
   implementation project(':util')
 
   implementation 'io.vertx:vertx-core'
-  implementation 'org.apache.tuweni:bytes'
+  implementation 'org.apache.tuweni:tuweni-bytes'
 
   testImplementation "junit:junit"
   testImplementation 'org.assertj:assertj-core'

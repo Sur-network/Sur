@@ -29,18 +29,20 @@ import org.hyperledger.besu.consensus.common.bft.ConsensusRoundHelpers;
 import org.hyperledger.besu.consensus.common.bft.ConsensusRoundIdentifier;
 import org.hyperledger.besu.consensus.common.bft.ProposedBlockHelpers;
 import org.hyperledger.besu.consensus.common.bft.payload.SignedData;
+import org.hyperledger.besu.consensus.qbft.QbftContext;
 import org.hyperledger.besu.consensus.qbft.QbftExtraDataCodec;
 import org.hyperledger.besu.consensus.qbft.messagewrappers.RoundChange;
 import org.hyperledger.besu.consensus.qbft.payload.PreparedRoundMetadata;
 import org.hyperledger.besu.consensus.qbft.payload.RoundChangePayload;
 import org.hyperledger.besu.consensus.qbft.statemachine.PreparedCertificate;
 import org.hyperledger.besu.crypto.SECPSignature;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.BlockValidator.BlockProcessingOutputs;
+import org.hyperledger.besu.ethereum.BlockValidator.Result;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 
@@ -79,7 +81,8 @@ public class RoundChangeMessageValidatorTest {
         new ProtocolContext(
             blockChain,
             worldStateArchive,
-            setupContextWithBftExtraDataEncoder(emptyList(), bftExtraDataEncoder));
+            setupContextWithBftExtraDataEncoder(
+                QbftContext.class, emptyList(), bftExtraDataEncoder));
   }
 
   @Test
@@ -105,7 +108,7 @@ public class RoundChangeMessageValidatorTest {
   public void roundChangeWithValidPiggyBackDataIsValid() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -132,7 +135,7 @@ public class RoundChangeMessageValidatorTest {
   public void roundChangeWithBlockRoundMismatchingPreparesIsValid() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -161,7 +164,7 @@ public class RoundChangeMessageValidatorTest {
   public void blockIsInvalidFailsValidation() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.empty());
+        .thenReturn(new Result("Failed"));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -204,7 +207,7 @@ public class RoundChangeMessageValidatorTest {
   public void insufficientPiggyBackedPrepareMessagesIsInvalid() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -231,7 +234,7 @@ public class RoundChangeMessageValidatorTest {
   public void prepareFromNonValidatorFails() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -260,7 +263,7 @@ public class RoundChangeMessageValidatorTest {
   public void validationFailsIfPreparedMetadataContainsDifferentRoundToBlock() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -295,7 +298,7 @@ public class RoundChangeMessageValidatorTest {
   public void validationFailsIfPreparesContainsDifferentRoundToBlock() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -332,7 +335,7 @@ public class RoundChangeMessageValidatorTest {
   public void validationFailsIfPreparesContainsWrongHeight() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -369,7 +372,7 @@ public class RoundChangeMessageValidatorTest {
   public void validationFailsIfPreparesHaveDuplicateAuthors() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -401,7 +404,7 @@ public class RoundChangeMessageValidatorTest {
   public void validationFailsIfBlockExistsButNotPreparedMetadata() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(
@@ -429,7 +432,7 @@ public class RoundChangeMessageValidatorTest {
   public void validationFailsIfBlockHashDoesNotMatchPreparedMetadata() {
     when(blockValidator.validateAndProcessBlock(
             any(), any(), eq(HeaderValidationMode.LIGHT), eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
     when(payloadValidator.validate(any())).thenReturn(true);
     messageValidator =
         new RoundChangeMessageValidator(

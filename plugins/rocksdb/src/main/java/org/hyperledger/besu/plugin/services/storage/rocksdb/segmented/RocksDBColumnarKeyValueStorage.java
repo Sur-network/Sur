@@ -41,8 +41,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -51,13 +49,15 @@ import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
 import org.rocksdb.LRUCache;
+import org.rocksdb.OptimisticTransactionDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Statistics;
 import org.rocksdb.Status;
-import org.rocksdb.TransactionDB;
 import org.rocksdb.TransactionDBOptions;
 import org.rocksdb.WriteOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RocksDBColumnarKeyValueStorage
     implements SegmentedKeyValueStorage<ColumnFamilyHandle> {
@@ -66,13 +66,13 @@ public class RocksDBColumnarKeyValueStorage
     RocksDbUtil.loadNativeLibrary();
   }
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(RocksDBColumnarKeyValueStorage.class);
   private static final String DEFAULT_COLUMN = "default";
   private static final String NO_SPACE_LEFT_ON_DEVICE = "No space left on device";
 
   private final DBOptions options;
   private final TransactionDBOptions txOptions;
-  private final TransactionDB db;
+  private final OptimisticTransactionDB db;
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private final Map<String, ColumnFamilyHandle> columnHandlesByName;
   private final RocksDBMetrics metrics;
@@ -88,13 +88,17 @@ public class RocksDBColumnarKeyValueStorage
     try (final ColumnFamilyOptions columnFamilyOptions = new ColumnFamilyOptions()) {
       final List<ColumnFamilyDescriptor> columnDescriptors =
           segments.stream()
-              .map(segment -> new ColumnFamilyDescriptor(segment.getId()))
+              .map(
+                  segment ->
+                      new ColumnFamilyDescriptor(
+                          segment.getId(), new ColumnFamilyOptions().setTtl(0)))
               .collect(Collectors.toList());
       columnDescriptors.add(
           new ColumnFamilyDescriptor(
               DEFAULT_COLUMN.getBytes(StandardCharsets.UTF_8),
-              columnFamilyOptions.setTableFormatConfig(
-                  createBlockBasedTableConfig(configuration))));
+              columnFamilyOptions
+                  .setTtl(0)
+                  .setTableFormatConfig(createBlockBasedTableConfig(configuration))));
 
       final Statistics stats = new Statistics();
       options =
@@ -110,12 +114,8 @@ public class RocksDBColumnarKeyValueStorage
       txOptions = new TransactionDBOptions();
       final List<ColumnFamilyHandle> columnHandles = new ArrayList<>(columnDescriptors.size());
       db =
-          TransactionDB.open(
-              options,
-              txOptions,
-              configuration.getDatabaseDir().toString(),
-              columnDescriptors,
-              columnHandles);
+          OptimisticTransactionDB.open(
+              options, configuration.getDatabaseDir().toString(), columnDescriptors, columnHandles);
       metrics = rocksDBMetricsFactory.create(metricsSystem, configuration, db, stats);
       final Map<Bytes, String> segmentsById =
           segments.stream()

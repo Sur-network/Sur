@@ -17,6 +17,9 @@ package org.hyperledger.besu.config;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.isNull;
 
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
+
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
@@ -31,6 +34,7 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
+import org.apache.tuweni.units.bigints.UInt256;
 
 public class JsonGenesisConfigOptions implements GenesisConfigOptions {
 
@@ -42,6 +46,7 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
   private static final String CLIQUE_CONFIG_KEY = "clique";
   private static final String EC_CURVE_CONFIG_KEY = "eccurve";
   private static final String TRANSITIONS_CONFIG_KEY = "transitions";
+  private static final String DISCOVERY_CONFIG_KEY = "discovery";
 
   private final ObjectNode configRoot;
   private final Map<String, String> configOverrides = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -150,8 +155,22 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
   public BftConfigOptions getBftConfigOptions() {
     final String fieldKey = isIbft2() ? IBFT2_CONFIG_KEY : QBFT_CONFIG_KEY;
     return JsonUtil.getObjectNode(configRoot, fieldKey)
-        .map(BftConfigOptions::new)
-        .orElse(BftConfigOptions.DEFAULT);
+        .map(JsonBftConfigOptions::new)
+        .orElse(JsonBftConfigOptions.DEFAULT);
+  }
+
+  @Override
+  public QbftConfigOptions getQbftConfigOptions() {
+    return JsonUtil.getObjectNode(configRoot, QBFT_CONFIG_KEY)
+        .map(JsonQbftConfigOptions::new)
+        .orElse(JsonQbftConfigOptions.DEFAULT);
+  }
+
+  @Override
+  public DiscoveryOptions getDiscoveryOptions() {
+    return JsonUtil.getObjectNode(configRoot, DISCOVERY_CONFIG_KEY)
+        .map(DiscoveryOptions::new)
+        .orElse(DiscoveryOptions.DEFAULT);
   }
 
   @Override
@@ -245,31 +264,40 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
 
   @Override
   public OptionalLong getLondonBlockNumber() {
-    final OptionalLong londonBlock = getOptionalLong("londonblock");
-    final OptionalLong calaverasblock = getOptionalLong("calaverasblock");
-    if (calaverasblock.isPresent()) {
-      if (londonBlock.isPresent()) {
-        throw new RuntimeException(
-            "Genesis files cannot specify both londonblock and calaverasblock.");
-      }
-      return calaverasblock;
-    }
-    return londonBlock;
+    return getOptionalLong("londonblock");
   }
 
   @Override
-  public OptionalLong getAleutBlockNumber() {
-    return getOptionalLong("aleutblock");
+  public OptionalLong getArrowGlacierBlockNumber() {
+    return getOptionalLong("arrowglacierblock");
   }
 
   @Override
-  // TODO EIP-1559 change for the actual fork name when known
-  public OptionalLong getEIP1559BlockNumber() {
-    if (getAleutBlockNumber().isPresent()) {
-      return getAleutBlockNumber();
-    } else {
-      return getLondonBlockNumber();
-    }
+  public OptionalLong getPreMergeForkBlockNumber() {
+    return getOptionalLong("premergeforkblock");
+  }
+
+  @Override
+  public Optional<Wei> getBaseFeePerGas() {
+    return Optional.ofNullable(configOverrides.get("baseFeePerGas"))
+        .map(Wei::fromHexString)
+        .map(Optional::of)
+        .orElse(Optional.empty());
+  }
+
+  @Override
+  public Optional<UInt256> getTerminalTotalDifficulty() {
+    return getOptionalBigInteger("terminaltotaldifficulty").map(UInt256::valueOf);
+  }
+
+  @Override
+  public OptionalLong getTerminalBlockNumber() {
+    return getOptionalLong("terminalblocknumber");
+  }
+
+  @Override
+  public Optional<Hash> getTerminalBlockHash() {
+    return getOptionalHash("terminalblockhash");
   }
 
   @Override
@@ -320,6 +348,11 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
   @Override
   public OptionalLong getMagnetoBlockNumber() {
     return getOptionalLong("magnetoblock");
+  }
+
+  @Override
+  public OptionalLong getMystiqueBlockNumber() {
+    return getOptionalLong("mystiqueblock");
   }
 
   @Override
@@ -398,7 +431,10 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
     getMuirGlacierBlockNumber().ifPresent(l -> builder.put("muirGlacierBlock", l));
     getBerlinBlockNumber().ifPresent(l -> builder.put("berlinBlock", l));
     getLondonBlockNumber().ifPresent(l -> builder.put("londonBlock", l));
-    getAleutBlockNumber().ifPresent(l -> builder.put("aleutBlock", l));
+    getArrowGlacierBlockNumber().ifPresent(l -> builder.put("arrowGlacierBlock", l));
+    getPreMergeForkBlockNumber().ifPresent(l -> builder.put("preMergeForkBlock", l));
+    getTerminalBlockNumber().ifPresent(l -> builder.put("terminalBlockNumber", l));
+    getTerminalBlockHash().ifPresent(h -> builder.put("terminalBlockHash", h.toHexString()));
 
     // classic fork blocks
     getClassicForkBlock().ifPresent(l -> builder.put("classicForkBlock", l));
@@ -411,6 +447,7 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
     getPhoenixBlockNumber().ifPresent(l -> builder.put("phoenixBlock", l));
     getThanosBlockNumber().ifPresent(l -> builder.put("thanosBlock", l));
     getMagnetoBlockNumber().ifPresent(l -> builder.put("magnetoBlock", l));
+    getMystiqueBlockNumber().ifPresent(l -> builder.put("mystiqueBlock", l));
     getEcip1049BlockNumber().ifPresent(l -> builder.put("ecip1049Block", l));
 
     getContractSizeLimit().ifPresent(l -> builder.put("contractSizeLimit", l));
@@ -431,6 +468,9 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
     }
     if (isIbft2()) {
       builder.put("ibft2", getBftConfigOptions().asMap());
+    }
+    if (isQbft()) {
+      builder.put("qbft", getQbftConfigOptions().asMap());
     }
 
     if (isQuorum()) {
@@ -485,6 +525,15 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
     }
   }
 
+  private Optional<Hash> getOptionalHash(final String key) {
+    if (configOverrides.containsKey(key)) {
+      final String overrideHash = configOverrides.get(key);
+      return Optional.of(Hash.fromHexString(overrideHash));
+    } else {
+      return JsonUtil.getValueAsString(configRoot, key).map(s -> Hash.fromHexString(s));
+    }
+  }
+
   @Override
   public List<Long> getForks() {
     Stream<OptionalLong> forkBlockNumbers =
@@ -500,7 +549,9 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
             getMuirGlacierBlockNumber(),
             getBerlinBlockNumber(),
             getLondonBlockNumber(),
-            getAleutBlockNumber(),
+            getArrowGlacierBlockNumber(),
+            getPreMergeForkBlockNumber(),
+            getTerminalBlockNumber(),
             getEcip1015BlockNumber(),
             getDieHardBlockNumber(),
             getGothamBlockNumber(),
@@ -510,6 +561,7 @@ public class JsonGenesisConfigOptions implements GenesisConfigOptions {
             getPhoenixBlockNumber(),
             getThanosBlockNumber(),
             getMagnetoBlockNumber(),
+            getMystiqueBlockNumber(),
             getEcip1049BlockNumber());
     // when adding forks add an entry to ${REPO_ROOT}/config/src/test/resources/all_forks.json
 

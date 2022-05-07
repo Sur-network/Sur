@@ -14,25 +14,28 @@
  */
 package org.hyperledger.besu.tests.acceptance.dsl.node;
 
-import static org.hyperledger.besu.cli.config.NetworkName.DEV;
 import static org.hyperledger.besu.controller.BesuController.DATABASE_PATH;
 
 import org.hyperledger.besu.Runner;
 import org.hyperledger.besu.RunnerBuilder;
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
+import org.hyperledger.besu.cli.config.NetworkName;
+import org.hyperledger.besu.consensus.qbft.pki.PkiBlockCreationConfigurationProvider;
 import org.hyperledger.besu.controller.BesuController;
 import org.hyperledger.besu.controller.BesuControllerBuilder;
 import org.hyperledger.besu.crypto.KeyPairSecurityModule;
 import org.hyperledger.besu.crypto.KeyPairUtil;
 import org.hyperledger.besu.crypto.NodeKey;
+import org.hyperledger.besu.ethereum.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.api.graphql.GraphQLConfiguration;
-import org.hyperledger.besu.ethereum.blockcreation.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.eth.EthProtocolConfiguration;
 import org.hyperledger.besu.ethereum.eth.sync.SynchronizerConfiguration;
+import org.hyperledger.besu.ethereum.eth.transactions.ImmutableTransactionPoolConfiguration;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueStorageProvider;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueStorageProviderBuilder;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.MetricsSystemFactory;
 import org.hyperledger.besu.metrics.ObservableMetricsSystem;
 import org.hyperledger.besu.plugin.data.EnodeURL;
@@ -47,6 +50,7 @@ import org.hyperledger.besu.services.BesuEventsImpl;
 import org.hyperledger.besu.services.BesuPluginContextImpl;
 import org.hyperledger.besu.services.PermissioningServiceImpl;
 import org.hyperledger.besu.services.PicoCLIOptionsImpl;
+import org.hyperledger.besu.services.RpcEndpointServiceImpl;
 import org.hyperledger.besu.services.SecurityModuleServiceImpl;
 import org.hyperledger.besu.services.StorageServiceImpl;
 
@@ -61,15 +65,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import io.vertx.core.Vertx;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.ThreadContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
 
 public class ThreadBesuNodeRunner implements BesuNodeRunner {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(ThreadBesuNodeRunner.class);
   private final Map<String, Runner> besuRunners = new HashMap<>();
 
   private final Map<Node, BesuPluginContextImpl> besuPluginContextMap = new ConcurrentHashMap<>();
@@ -107,10 +111,10 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
   @Override
   public void startNode(final BesuNode node) {
 
-    if (ThreadContext.containsKey("node")) {
-      LOG.error("ThreadContext node is already set to {}", ThreadContext.get("node"));
+    if (MDC.get("node") != null) {
+      LOG.error("ThreadContext node is already set to {}", MDC.get("node"));
     }
-    ThreadContext.put("node", node.getName());
+    MDC.put("node", node.getName());
 
     if (!node.getRunCommand().isEmpty()) {
       throw new UnsupportedOperationException("commands are not supported with thread runner");
@@ -134,8 +138,9 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
         node.getConfiguration().getBootnodes().stream()
             .map(EnodeURLImpl::fromURI)
             .collect(Collectors.toList());
+    final NetworkName network = node.getNetwork() == null ? NetworkName.DEV : node.getNetwork();
     final EthNetworkConfig.Builder networkConfigBuilder =
-        new EthNetworkConfig.Builder(EthNetworkConfig.getNetworkConfig(DEV))
+        new EthNetworkConfig.Builder(EthNetworkConfig.getNetworkConfig(network))
             .setBootNodes(bootnodes);
     node.getConfiguration().getGenesisConfig().ifPresent(networkConfigBuilder::setGenesisConfig);
     final EthNetworkConfig ethNetworkConfig = networkConfigBuilder.build();
@@ -149,6 +154,13 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
             .withMetricsSystem(metricsSystem)
             .build();
 
+    final TransactionPoolConfiguration txPoolConfig =
+        ImmutableTransactionPoolConfiguration.builder()
+            .strictTransactionReplayProtectionEnabled(node.isStrictTxReplayProtectionEnabled())
+            .build();
+
+    final int maxPeers = 25;
+
     final BesuController besuController =
         builder
             .synchronizerConfiguration(new SynchronizerConfiguration.Builder().build())
@@ -157,16 +169,56 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
             .privacyParameters(node.getPrivacyParameters())
             .nodeKey(new NodeKey(new KeyPairSecurityModule(KeyPairUtil.loadKeyPair(dataDir))))
             .metricsSystem(metricsSystem)
-            .transactionPoolConfiguration(TransactionPoolConfiguration.DEFAULT)
+            .transactionPoolConfiguration(txPoolConfig)
             .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
             .clock(Clock.systemUTC())
             .isRevertReasonEnabled(node.isRevertReasonEnabled())
             .storageProvider(storageProvider)
             .gasLimitCalculator(GasLimitCalculator.constant())
+            .pkiBlockCreationConfiguration(
+                node.getPkiKeyStoreConfiguration()
+                    .map(
+                        (pkiConfig) -> new PkiBlockCreationConfigurationProvider().load(pkiConfig)))
+            .evmConfiguration(EvmConfiguration.DEFAULT)
+            .maxPeers(maxPeers)
             .build();
 
     final RunnerBuilder runnerBuilder = new RunnerBuilder();
     runnerBuilder.permissioningConfiguration(node.getPermissioningConfiguration());
+
+    final Runner runner =
+        runnerBuilder
+            .vertx(Vertx.vertx())
+            .besuController(besuController)
+            .ethNetworkConfig(ethNetworkConfig)
+            .discovery(node.isDiscoveryEnabled())
+            .p2pAdvertisedHost(node.getHostName())
+            .p2pListenPort(0)
+            .maxPeers(maxPeers)
+            .networkingConfiguration(node.getNetworkingConfiguration())
+            .jsonRpcConfiguration(node.jsonRpcConfiguration())
+            .webSocketConfiguration(node.webSocketConfiguration())
+            .dataDir(node.homeDirectory())
+            .metricsSystem(metricsSystem)
+            .permissioningService(new PermissioningServiceImpl())
+            .metricsConfiguration(node.getMetricsConfiguration())
+            .p2pEnabled(node.isP2pEnabled())
+            .p2pTLSConfiguration(node.getTLSConfiguration())
+            .graphQLConfiguration(GraphQLConfiguration.createDefault())
+            .staticNodes(
+                node.getStaticNodes().stream()
+                    .map(EnodeURLImpl::fromString)
+                    .collect(Collectors.toList()))
+            .besuPluginContext(new BesuPluginContextImpl())
+            .autoLogBloomCaching(false)
+            .storageProvider(storageProvider)
+            .forkIdSupplier(() -> besuController.getProtocolManager().getForkIdAsBytesList())
+            .rpcEndpointService(new RpcEndpointServiceImpl())
+            .build();
+
+    besuPluginContext.beforeExternalServices();
+
+    runner.startExternalServices();
 
     besuPluginContext.addService(
         BesuEvents.class,
@@ -177,38 +229,10 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
             besuController.getSyncState()));
     besuPluginContext.startPlugins();
 
-    final Runner runner =
-        runnerBuilder
-            .vertx(Vertx.vertx())
-            .besuController(besuController)
-            .ethNetworkConfig(ethNetworkConfig)
-            .discovery(node.isDiscoveryEnabled())
-            .p2pAdvertisedHost(node.getHostName())
-            .p2pListenPort(0)
-            .maxPeers(25)
-            .networkingConfiguration(node.getNetworkingConfiguration())
-            .jsonRpcConfiguration(node.jsonRpcConfiguration())
-            .webSocketConfiguration(node.webSocketConfiguration())
-            .dataDir(node.homeDirectory())
-            .metricsSystem(metricsSystem)
-            .permissioningService(new PermissioningServiceImpl())
-            .metricsConfiguration(node.getMetricsConfiguration())
-            .p2pEnabled(node.isP2pEnabled())
-            .graphQLConfiguration(GraphQLConfiguration.createDefault())
-            .staticNodes(
-                node.getStaticNodes().stream()
-                    .map(EnodeURLImpl::fromString)
-                    .collect(Collectors.toList()))
-            .besuPluginContext(new BesuPluginContextImpl())
-            .autoLogBloomCaching(false)
-            .storageProvider(storageProvider)
-            .forkIdSupplier(() -> besuController.getProtocolManager().getForkIdAsBytesList())
-            .build();
-
-    runner.start();
+    runner.startEthereumMainLoop();
 
     besuRunners.put(node.getName(), runner);
-    ThreadContext.remove("node");
+    MDC.remove("node");
   }
 
   @Override

@@ -18,6 +18,9 @@ import static org.hyperledger.besu.config.JsonUtil.normalizeKeys;
 
 import org.hyperledger.besu.config.JsonGenesisConfigOptions;
 import org.hyperledger.besu.config.JsonUtil;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.processor.BlockReplay;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
@@ -25,24 +28,20 @@ import org.hyperledger.besu.ethereum.blockcreation.IncrementingNonceGenerator;
 import org.hyperledger.besu.ethereum.chain.DefaultBlockchain;
 import org.hyperledger.besu.ethereum.chain.GenesisState;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
-import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.core.fees.EIP1559;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.EthMessages;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.eth.sync.state.SyncState;
 import org.hyperledger.besu.ethereum.eth.transactions.ImmutableTransactionPoolConfiguration;
-import org.hyperledger.besu.ethereum.eth.transactions.PendingTransactions;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolConfiguration;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolFactory;
+import org.hyperledger.besu.ethereum.eth.transactions.sorter.AbstractPendingTransactionsSorter;
 import org.hyperledger.besu.ethereum.mainnet.EpochCalculator;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
@@ -58,6 +57,7 @@ import org.hyperledger.besu.ethereum.storage.keyvalue.WorldStateKeyValueStorage;
 import org.hyperledger.besu.ethereum.storage.keyvalue.WorldStatePreimageKeyValueStorage;
 import org.hyperledger.besu.ethereum.worldstate.DefaultWorldStateArchive;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.services.kvstore.InMemoryKeyValueStorage;
@@ -67,17 +67,17 @@ import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RetestethContext {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(RetestethContext.class);
   private static final PoWHasher NO_WORK_HASHER =
       (final long nonce, final long number, EpochCalculator epochCalc, final Bytes headerHash) ->
-          new PoWSolution(nonce, Hash.ZERO, UInt256.ZERO.toBytes(), Hash.ZERO);
+          new PoWSolution(nonce, Hash.ZERO, UInt256.ZERO, Hash.ZERO);
 
   private final ReentrantLock contextLock = new ReentrantLock();
   private Address coinbase;
@@ -132,7 +132,8 @@ public class RetestethContext {
     final JsonGenesisConfigOptions jsonGenesisConfigOptions =
         JsonGenesisConfigOptions.fromJsonObject(
             JsonUtil.getObjectNode(genesisConfig, "config").get());
-    protocolSchedule = MainnetProtocolSchedule.fromConfig(jsonGenesisConfigOptions);
+    protocolSchedule =
+        MainnetProtocolSchedule.fromConfig(jsonGenesisConfigOptions, EvmConfiguration.DEFAULT);
     if ("NoReward".equalsIgnoreCase(sealEngine)) {
       protocolSchedule = new NoRewardProtocolScheduleWrapper(protocolSchedule);
     }
@@ -168,13 +169,17 @@ public class RetestethContext {
                 NO_WORK_HASHER,
                 false,
                 Subscribers.none(),
-                new EpochCalculator.DefaultEpochCalculator())
+                new EpochCalculator.DefaultEpochCalculator(),
+                1000,
+                8)
             : new PoWSolver(
                 nonceGenerator,
                 PoWHasher.ETHASH_LIGHT,
                 false,
                 Subscribers.none(),
-                new EpochCalculator.DefaultEpochCalculator());
+                new EpochCalculator.DefaultEpochCalculator(),
+                1000,
+                8);
 
     blockReplay =
         new BlockReplay(
@@ -184,7 +189,7 @@ public class RetestethContext {
 
     // mining support
 
-    final EthPeers ethPeers = new EthPeers("reteseth", retestethClock, metricsSystem);
+    final EthPeers ethPeers = new EthPeers("reteseth", retestethClock, metricsSystem, 0);
     final SyncState syncState = new SyncState(blockchain, ethPeers);
 
     ethScheduler = new EthScheduler(1, 1, 1, 1, metricsSystem);
@@ -202,13 +207,11 @@ public class RetestethContext {
             metricsSystem,
             syncState,
             Wei.ZERO,
-            transactionPoolConfiguration,
-            jsonGenesisConfigOptions.getEIP1559BlockNumber().isPresent()
-                ? Optional.of(
-                    new EIP1559(jsonGenesisConfigOptions.getEIP1559BlockNumber().getAsLong()))
-                : Optional.empty());
+            transactionPoolConfiguration);
 
-    LOG.trace("Genesis Block {} ", genesisState::getBlock);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Genesis Block {} ", genesisState.getBlock());
+    }
 
     return true;
   }
@@ -267,7 +270,7 @@ public class RetestethContext {
     return transactionPool;
   }
 
-  PendingTransactions getPendingTransactions() {
+  AbstractPendingTransactionsSorter getPendingTransactions() {
     return transactionPool.getPendingTransactions();
   }
 

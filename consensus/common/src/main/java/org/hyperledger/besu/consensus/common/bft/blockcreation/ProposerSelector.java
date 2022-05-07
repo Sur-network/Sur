@@ -17,11 +17,10 @@ package org.hyperledger.besu.consensus.common.bft.blockcreation;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.hyperledger.besu.consensus.common.BlockInterface;
-import org.hyperledger.besu.consensus.common.ValidatorProvider;
-import org.hyperledger.besu.consensus.common.VoteTallyCache;
 import org.hyperledger.besu.consensus.common.bft.ConsensusRoundIdentifier;
+import org.hyperledger.besu.consensus.common.validator.ValidatorProvider;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 
 import java.util.ArrayList;
@@ -31,8 +30,8 @@ import java.util.NavigableSet;
 import java.util.Optional;
 import java.util.TreeSet;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Responsible for determining which member of the validator pool should propose the next block
@@ -45,7 +44,7 @@ import org.apache.logging.log4j.Logger;
  */
 public class ProposerSelector {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(ProposerSelector.class);
 
   private final Blockchain blockchain;
 
@@ -55,7 +54,7 @@ public class ProposerSelector {
    */
   private final Boolean changeEachBlock;
 
-  private final VoteTallyCache voteTallyCache;
+  private final ValidatorProvider validatorProvider;
 
   private final BlockInterface blockInterface;
 
@@ -63,11 +62,11 @@ public class ProposerSelector {
       final Blockchain blockchain,
       final BlockInterface blockInterface,
       final boolean changeEachBlock,
-      final VoteTallyCache voteTallyCache) {
+      final ValidatorProvider validatorProvider) {
     this.blockchain = blockchain;
     this.blockInterface = blockInterface;
     this.changeEachBlock = changeEachBlock;
-    this.voteTallyCache = voteTallyCache;
+    this.validatorProvider = validatorProvider;
   }
 
   /**
@@ -90,7 +89,7 @@ public class ProposerSelector {
     final BlockHeader blockHeader = maybeParentHeader.get();
     final Address prevBlockProposer = blockInterface.getProposerOfBlock(blockHeader);
     final Collection<Address> validatorsForRound =
-        voteTallyCache.getVoteTallyAfterBlock(blockHeader).getValidators();
+        validatorProvider.getValidatorsAfterBlock(blockHeader);
 
     if (!validatorsForRound.contains(prevBlockProposer)) {
       return handleMissingProposer(prevBlockProposer, validatorsForRound, roundIdentifier);

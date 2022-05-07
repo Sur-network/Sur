@@ -21,17 +21,17 @@ import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.AttachedBlockHeaderValidationRule;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BftVanityDataValidationRule implements AttachedBlockHeaderValidationRule {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(BftVanityDataValidationRule.class);
 
   @Override
   public boolean validate(
       final BlockHeader header, final BlockHeader parent, final ProtocolContext protocolContext) {
-    final BftContext bftContext = protocolContext.getConsensusState(BftContext.class);
+    final BftContext bftContext = protocolContext.getConsensusContext(BftContext.class);
     final BftExtraData bftExtraData = bftContext.getBlockInterface().getExtraData(header);
 
     if (bftExtraData.getVanityData().size() != BftExtraDataCodec.EXTRA_VANITY_LENGTH) {

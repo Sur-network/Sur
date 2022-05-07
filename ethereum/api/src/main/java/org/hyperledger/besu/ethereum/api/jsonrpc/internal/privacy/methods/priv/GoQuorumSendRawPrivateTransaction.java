@@ -14,11 +14,11 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.privacy.methods.priv;
 
-import static org.apache.logging.log4j.LogManager.getLogger;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcEnclaveErrorConverter.convertEnclaveInvalidReason;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcErrorConverter.convertTransactionInvalidReason;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError.DECODE_ERROR;
 
+import org.hyperledger.besu.config.GoQuorumOptions;
 import org.hyperledger.besu.enclave.GoQuorumEnclave;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
@@ -30,6 +30,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorR
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.encoding.TransactionDecoder;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.privacy.GoQuorumSendRawTxArgs;
 import org.hyperledger.besu.ethereum.rlp.RLP;
@@ -38,23 +39,39 @@ import org.hyperledger.besu.ethereum.transaction.TransactionInvalidReason;
 
 import java.math.BigInteger;
 
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GoQuorumSendRawPrivateTransaction implements JsonRpcMethod {
 
-  private static final Logger LOG = getLogger();
+  private static final Logger LOG =
+      LoggerFactory.getLogger(GoQuorumSendRawPrivateTransaction.class);
   final TransactionPool transactionPool;
   private final PrivacyIdProvider privacyIdProvider;
   private final GoQuorumEnclave enclave;
+  private final boolean goQuorumCompatibilityMode;
 
   public GoQuorumSendRawPrivateTransaction(
       final GoQuorumEnclave enclave,
       final TransactionPool transactionPool,
       final PrivacyIdProvider privacyIdProvider) {
+    this(
+        enclave,
+        transactionPool,
+        privacyIdProvider,
+        GoQuorumOptions.getGoQuorumCompatibilityMode());
+  }
+
+  public GoQuorumSendRawPrivateTransaction(
+      final GoQuorumEnclave enclave,
+      final TransactionPool transactionPool,
+      final PrivacyIdProvider privacyIdProvider,
+      final boolean goQuorumCompatibilityMode) {
     this.enclave = enclave;
     this.transactionPool = transactionPool;
     this.privacyIdProvider = privacyIdProvider;
+    this.goQuorumCompatibilityMode = goQuorumCompatibilityMode;
   }
 
   @Override
@@ -72,7 +89,8 @@ public class GoQuorumSendRawPrivateTransaction implements JsonRpcMethod {
 
     try {
       final Transaction transaction =
-          Transaction.readFrom(RLP.input(Bytes.fromHexString(rawPrivateTransaction)));
+          TransactionDecoder.decodeForWire(
+              RLP.input(Bytes.fromHexString(rawPrivateTransaction)), goQuorumCompatibilityMode);
 
       checkAndHandlePrivateTransaction(transaction, rawTxArgs, requestContext);
 
@@ -85,10 +103,10 @@ public class GoQuorumSendRawPrivateTransaction implements JsonRpcMethod {
     } catch (final JsonRpcErrorResponseException e) {
       return new JsonRpcErrorResponse(id, e.getJsonRpcError());
     } catch (final IllegalArgumentException | RLPException e) {
-      LOG.error(e);
+      LOG.error("Unable to decode private transaction for send", e);
       return new JsonRpcErrorResponse(id, DECODE_ERROR);
     } catch (final Exception e) {
-      LOG.error(e);
+      LOG.error("Unexpected error", e);
       return new JsonRpcErrorResponse(id, convertEnclaveInvalidReason(e.getMessage()));
     }
   }

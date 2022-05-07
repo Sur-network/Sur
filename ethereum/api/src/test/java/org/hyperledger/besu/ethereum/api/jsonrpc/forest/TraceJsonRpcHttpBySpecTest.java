@@ -20,13 +20,11 @@ import org.hyperledger.besu.ethereum.worldstate.DataStorageFormat;
 
 import java.net.URL;
 
-import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-@Ignore
 public class TraceJsonRpcHttpBySpecTest extends AbstractJsonRpcHttpBySpecTest {
 
   public TraceJsonRpcHttpBySpecTest(final String specName, final URL specURL) {
@@ -55,7 +53,9 @@ public class TraceJsonRpcHttpBySpecTest extends AbstractJsonRpcHttpBySpecTest {
           "trace/specs/replay-trace-transaction/vm-trace",
           "trace/specs/replay-trace-transaction/statediff",
           "trace/specs/replay-trace-transaction/all",
-          "trace/specs/replay-trace-transaction/halt-cases"
+          "trace/specs/replay-trace-transaction/halt-cases",
+          "trace/specs/trace-filter",
+          "trace/specs/trace-call"
         });
   }
 }

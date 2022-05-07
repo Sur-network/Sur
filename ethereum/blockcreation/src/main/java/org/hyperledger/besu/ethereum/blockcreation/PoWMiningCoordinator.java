@@ -14,11 +14,9 @@
  */
 package org.hyperledger.besu.ethereum.blockcreation;
 
-import static org.apache.logging.log4j.LogManager.getLogger;
-
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.chain.BlockAddedObserver;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.eth.sync.state.SyncState;
 import org.hyperledger.besu.ethereum.mainnet.EpochCalculator;
@@ -30,7 +28,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Responsible for determining when a block mining operation should be started/stopped, then
@@ -39,7 +38,7 @@ import org.apache.logging.log4j.Logger;
 public class PoWMiningCoordinator extends AbstractMiningCoordinator<PoWBlockMiner>
     implements BlockAddedObserver {
 
-  private static final Logger LOG = getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(PoWMiningCoordinator.class);
 
   private final PoWMinerExecutor executor;
 

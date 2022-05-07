@@ -41,12 +41,12 @@ import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class WebSocketService {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(WebSocketService.class);
 
   private static final InetSocketAddress EMPTY_SOCKET_ADDRESS = new InetSocketAddress("0.0.0.0", 0);
   private static final String APPLICATION_JSON = "application/json";
@@ -99,7 +99,9 @@ public class WebSocketService {
                     .setPort(configuration.getPort())
                     .setHandle100ContinueAutomatically(true)
                     .setCompressionSupported(true)
-                    .addWebSocketSubProtocol("undefined"))
+                    .addWebSocketSubProtocol("undefined")
+                    .setMaxWebSocketFrameSize(configuration.getMaxFrameSize())
+                    .setMaxWebSocketMessageSize(configuration.getMaxFrameSize() * 4))
             .webSocketHandler(websocketHandler())
             .connectionHandler(connectionHandler())
             .requestHandler(httpHandler())
@@ -123,6 +125,25 @@ public class WebSocketService {
 
       LOG.debug("Websocket Connected ({})", socketAddressAsString(socketAddress));
 
+      websocket.binaryMessageHandler(
+          buffer -> {
+            LOG.debug(
+                "Received Websocket request (binary frame) {} ({})",
+                buffer.toString(),
+                socketAddressAsString(socketAddress));
+
+            AuthenticationUtils.getUser(
+                authenticationService,
+                token,
+                user ->
+                    websocketRequestHandler.handle(
+                        authenticationService,
+                        websocket,
+                        buffer.toString(),
+                        user,
+                        configuration.getRpcApisNoAuth()));
+          });
+
       websocket.textMessageHandler(
           payload -> {
             LOG.debug(
@@ -135,7 +156,11 @@ public class WebSocketService {
                 token,
                 user ->
                     websocketRequestHandler.handle(
-                        authenticationService, connectionId, payload, user));
+                        authenticationService,
+                        websocket,
+                        payload,
+                        user,
+                        configuration.getRpcApisNoAuth()));
           });
 
       websocket.closeHandler(

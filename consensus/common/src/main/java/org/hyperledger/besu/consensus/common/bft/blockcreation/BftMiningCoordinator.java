@@ -14,29 +14,28 @@
  */
 package org.hyperledger.besu.consensus.common.bft.blockcreation;
 
-import static org.apache.logging.log4j.LogManager.getLogger;
-
 import org.hyperledger.besu.consensus.common.bft.BftEventQueue;
 import org.hyperledger.besu.consensus.common.bft.BftExecutors;
 import org.hyperledger.besu.consensus.common.bft.BftProcessor;
 import org.hyperledger.besu.consensus.common.bft.events.NewChainHead;
 import org.hyperledger.besu.consensus.common.bft.statemachine.BftEventHandler;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
 import org.hyperledger.besu.ethereum.chain.BlockAddedEvent;
 import org.hyperledger.besu.ethereum.chain.BlockAddedObserver;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
-import org.hyperledger.besu.ethereum.core.Wei;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BftMiningCoordinator implements MiningCoordinator, BlockAddedObserver {
 
@@ -46,7 +45,7 @@ public class BftMiningCoordinator implements MiningCoordinator, BlockAddedObserv
     STOPPED
   }
 
-  private static final Logger LOG = getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(BftMiningCoordinator.class);
 
   private final BftEventHandler eventHandler;
   private final BftProcessor bftProcessor;
@@ -145,6 +144,12 @@ public class BftMiningCoordinator implements MiningCoordinator, BlockAddedObserv
   }
 
   @Override
+  public Optional<Block> createBlock(final BlockHeader parentHeader, final long timestamp) {
+    // One-off block creation has not been implemented
+    return Optional.empty();
+  }
+
+  @Override
   public void changeTargetGasLimit(final Long targetGasLimit) {
     blockCreatorFactory.changeTargetGasLimit(targetGasLimit);
   }
@@ -155,5 +160,10 @@ public class BftMiningCoordinator implements MiningCoordinator, BlockAddedObserv
       LOG.trace("New canonical head detected");
       eventQueue.add(new NewChainHead(event.getBlock().getHeader()));
     }
+  }
+
+  @Override
+  public void removeObserver() {
+    blockchain.removeObserver(blockAddedObserverId);
   }
 }

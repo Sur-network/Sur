@@ -18,23 +18,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.hyperledger.besu.config.GenesisConfigFile;
 import org.hyperledger.besu.config.GenesisConfigOptions;
-import org.hyperledger.besu.ethereum.core.Address;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
 import org.hyperledger.besu.ethereum.core.Difficulty;
 import org.hyperledger.besu.ethereum.core.ExecutionContextTestFixture;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
-import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.eth.transactions.PendingTransactions;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolConfiguration;
-import org.hyperledger.besu.ethereum.mainnet.EthHash;
-import org.hyperledger.besu.ethereum.mainnet.EthHashSolver;
-import org.hyperledger.besu.ethereum.mainnet.EthHasher;
+import org.hyperledger.besu.ethereum.eth.transactions.sorter.BaseFeePendingTransactionsSorter;
+import org.hyperledger.besu.ethereum.mainnet.EpochCalculator;
+import org.hyperledger.besu.ethereum.mainnet.PoWHasher;
+import org.hyperledger.besu.ethereum.mainnet.PoWSolver;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder;
+import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecAdapters;
 import org.hyperledger.besu.ethereum.mainnet.ValidationTestUtils;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.testutil.TestClock;
@@ -48,11 +50,9 @@ import java.util.function.Function;
 
 import com.google.common.collect.Lists;
 import org.apache.tuweni.bytes.Bytes;
-import org.junit.Ignore;
 import org.junit.Test;
 
-@Ignore
-public class EthHashBlockCreatorTest {
+public class PoWBlockCreatorTest {
 
   private final Address BLOCK_1_COINBASE =
       Address.fromHexString("0x05a56e2d52c817161883f50c441c3228cfe54d9f");
@@ -74,40 +74,42 @@ public class EthHashBlockCreatorTest {
                 new ProtocolScheduleBuilder(
                         genesisConfigOptions,
                         BigInteger.valueOf(42),
-                        Function.identity(),
+                        ProtocolSpecAdapters.create(0, Function.identity()),
                         PrivacyParameters.DEFAULT,
                         false,
-                        genesisConfigOptions.isQuorum())
+                        genesisConfigOptions.isQuorum(),
+                        EvmConfiguration.DEFAULT)
                     .createProtocolSchedule())
             .build();
 
-    final EthHashSolver solver =
-        new EthHashSolver(
+    final PoWSolver solver =
+        new PoWSolver(
             Lists.newArrayList(BLOCK_1_NONCE),
-            new EthHasher.Light(),
+            PoWHasher.ETHASH_LIGHT,
             false,
             Subscribers.none(),
-            EthHash::epoch);
+            new EpochCalculator.DefaultEpochCalculator(),
+            1000,
+            8);
 
-    final PendingTransactions pendingTransactions =
-        new PendingTransactions(
+    final BaseFeePendingTransactionsSorter pendingTransactions =
+        new BaseFeePendingTransactionsSorter(
             TransactionPoolConfiguration.DEFAULT_TX_RETENTION_HOURS,
             1,
             5,
             TestClock.fixed(),
             metricsSystem,
             executionContextTestFixture.getProtocolContext().getBlockchain()::getChainHeadHeader,
-            Optional.empty(),
             TransactionPoolConfiguration.DEFAULT_PRICE_BUMP);
 
-    final EthHashBlockCreator blockCreator =
-        new EthHashBlockCreator(
+    final PoWBlockCreator blockCreator =
+        new PoWBlockCreator(
             BLOCK_1_COINBASE,
+            () -> Optional.empty(),
             parent -> BLOCK_1_EXTRA_DATA,
             pendingTransactions,
             executionContextTestFixture.getProtocolContext(),
             executionContextTestFixture.getProtocolSchedule(),
-            gasLimit -> gasLimit,
             solver,
             Wei.ZERO,
             0.8,
@@ -134,40 +136,42 @@ public class EthHashBlockCreatorTest {
                 new ProtocolScheduleBuilder(
                         genesisConfigOptions,
                         BigInteger.valueOf(42),
-                        Function.identity(),
+                        ProtocolSpecAdapters.create(0, Function.identity()),
                         PrivacyParameters.DEFAULT,
                         false,
-                        genesisConfigOptions.isQuorum())
+                        genesisConfigOptions.isQuorum(),
+                        EvmConfiguration.DEFAULT)
                     .createProtocolSchedule())
             .build();
 
-    final EthHashSolver solver =
-        new EthHashSolver(
+    final PoWSolver solver =
+        new PoWSolver(
             Lists.newArrayList(BLOCK_1_NONCE),
-            new EthHasher.Light(),
+            PoWHasher.ETHASH_LIGHT,
             false,
             Subscribers.none(),
-            EthHash::epoch);
+            new EpochCalculator.DefaultEpochCalculator(),
+            1000,
+            8);
 
-    final PendingTransactions pendingTransactions =
-        new PendingTransactions(
+    final BaseFeePendingTransactionsSorter pendingTransactions =
+        new BaseFeePendingTransactionsSorter(
             TransactionPoolConfiguration.DEFAULT_TX_RETENTION_HOURS,
             1,
             5,
             TestClock.fixed(),
             metricsSystem,
             executionContextTestFixture.getProtocolContext().getBlockchain()::getChainHeadHeader,
-            Optional.empty(),
             TransactionPoolConfiguration.DEFAULT_PRICE_BUMP);
 
-    final EthHashBlockCreator blockCreator =
-        new EthHashBlockCreator(
+    final PoWBlockCreator blockCreator =
+        new PoWBlockCreator(
             BLOCK_1_COINBASE,
+            () -> Optional.empty(),
             parent -> BLOCK_1_EXTRA_DATA,
             pendingTransactions,
             executionContextTestFixture.getProtocolContext(),
             executionContextTestFixture.getProtocolSchedule(),
-            gasLimit -> gasLimit,
             solver,
             Wei.ZERO,
             0.8,
@@ -189,40 +193,42 @@ public class EthHashBlockCreatorTest {
                 new ProtocolScheduleBuilder(
                         genesisConfigOptions,
                         BigInteger.valueOf(42),
-                        Function.identity(),
+                        ProtocolSpecAdapters.create(0, Function.identity()),
                         PrivacyParameters.DEFAULT,
                         false,
-                        genesisConfigOptions.isQuorum())
+                        genesisConfigOptions.isQuorum(),
+                        EvmConfiguration.DEFAULT)
                     .createProtocolSchedule())
             .build();
 
-    final EthHashSolver solver =
-        new EthHashSolver(
+    final PoWSolver solver =
+        new PoWSolver(
             Lists.newArrayList(BLOCK_1_NONCE),
-            new EthHasher.Light(),
+            PoWHasher.ETHASH_LIGHT,
             false,
             Subscribers.none(),
-            EthHash::epoch);
+            new EpochCalculator.DefaultEpochCalculator(),
+            1000,
+            8);
 
-    final PendingTransactions pendingTransactions =
-        new PendingTransactions(
+    final BaseFeePendingTransactionsSorter pendingTransactions =
+        new BaseFeePendingTransactionsSorter(
             TransactionPoolConfiguration.DEFAULT_TX_RETENTION_HOURS,
             1,
             5,
             TestClock.fixed(),
             metricsSystem,
             executionContextTestFixture.getProtocolContext().getBlockchain()::getChainHeadHeader,
-            Optional.empty(),
             TransactionPoolConfiguration.DEFAULT_PRICE_BUMP);
 
-    final EthHashBlockCreator blockCreator =
-        new EthHashBlockCreator(
+    final PoWBlockCreator blockCreator =
+        new PoWBlockCreator(
             BLOCK_1_COINBASE,
+            () -> Optional.of(10_000_000L),
             parent -> BLOCK_1_EXTRA_DATA,
             pendingTransactions,
             executionContextTestFixture.getProtocolContext(),
             executionContextTestFixture.getProtocolSchedule(),
-            gasLimit -> gasLimit,
             solver,
             Wei.ZERO,
             0.8,
@@ -260,40 +266,42 @@ public class EthHashBlockCreatorTest {
                 new ProtocolScheduleBuilder(
                         genesisConfigOptions,
                         BigInteger.valueOf(42),
-                        Function.identity(),
+                        ProtocolSpecAdapters.create(0, Function.identity()),
                         PrivacyParameters.DEFAULT,
                         false,
-                        genesisConfigOptions.isQuorum())
+                        genesisConfigOptions.isQuorum(),
+                        EvmConfiguration.DEFAULT)
                     .createProtocolSchedule())
             .build();
 
-    final EthHashSolver solver =
-        new EthHashSolver(
+    final PoWSolver solver =
+        new PoWSolver(
             Lists.newArrayList(BLOCK_1_NONCE),
-            new EthHasher.Light(),
+            PoWHasher.ETHASH_LIGHT,
             false,
             Subscribers.none(),
-            EthHash::epoch);
+            new EpochCalculator.DefaultEpochCalculator(),
+            1000,
+            8);
 
-    final PendingTransactions pendingTransactions =
-        new PendingTransactions(
+    final BaseFeePendingTransactionsSorter pendingTransactions =
+        new BaseFeePendingTransactionsSorter(
             TransactionPoolConfiguration.DEFAULT_TX_RETENTION_HOURS,
             1,
             5,
             TestClock.fixed(),
             metricsSystem,
             executionContextTestFixture.getProtocolContext().getBlockchain()::getChainHeadHeader,
-            Optional.empty(),
             TransactionPoolConfiguration.DEFAULT_PRICE_BUMP);
 
-    final EthHashBlockCreator blockCreator =
-        new EthHashBlockCreator(
+    final PoWBlockCreator blockCreator =
+        new PoWBlockCreator(
             BLOCK_1_COINBASE,
+            () -> Optional.of(10_000_000L),
             parent -> BLOCK_1_EXTRA_DATA,
             pendingTransactions,
             executionContextTestFixture.getProtocolContext(),
             executionContextTestFixture.getProtocolSchedule(),
-            gasLimit -> gasLimit,
             solver,
             Wei.ZERO,
             0.8,

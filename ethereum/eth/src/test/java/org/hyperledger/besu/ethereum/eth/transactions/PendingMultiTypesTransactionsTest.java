@@ -21,10 +21,12 @@ import static org.mockito.Mockito.when;
 import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionTestFixture;
-import org.hyperledger.besu.ethereum.core.Wei;
+import org.hyperledger.besu.ethereum.eth.transactions.sorter.AbstractPendingTransactionsSorter.TransactionSelectionResult;
+import org.hyperledger.besu.ethereum.eth.transactions.sorter.BaseFeePendingTransactionsSorter;
 import org.hyperledger.besu.metrics.StubMetricsSystem;
 import org.hyperledger.besu.plugin.data.TransactionType;
 import org.hyperledger.besu.testutil.TestClock;
@@ -53,14 +55,14 @@ public class PendingMultiTypesTransactionsTest {
   private final BlockHeader blockHeader = mock(BlockHeader.class);
 
   private final StubMetricsSystem metricsSystem = new StubMetricsSystem();
-  private final PendingTransactions transactions =
-      new PendingTransactions(
+  private final BaseFeePendingTransactionsSorter transactions =
+      new BaseFeePendingTransactionsSorter(
           TransactionPoolConfiguration.DEFAULT_TX_RETENTION_HOURS,
           MAX_TRANSACTIONS,
           MAX_TRANSACTION_HASHES,
           TestClock.fixed(),
           metricsSystem,
-          () -> mockBlockHeader(7),
+          () -> mockBlockHeader(Wei.of(7L)),
           TransactionPoolConfiguration.DEFAULT_PRICE_BUMP);
 
   @Test
@@ -94,7 +96,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.addLocalTransaction(localTransaction3);
     transactions.addLocalTransaction(localTransaction4);
 
-    transactions.updateBaseFee(300L);
+    transactions.updateBaseFee(Wei.of(300L));
 
     transactions.addLocalTransaction(localTransaction5);
     assertThat(transactions.size()).isEqualTo(5);
@@ -102,7 +104,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           assertThat(transaction.getNonce()).isNotEqualTo(1);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
   }
 
@@ -126,7 +128,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           assertThat(transaction.getNonce()).isNotEqualTo(2);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
   }
 
@@ -149,7 +151,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           assertThat(transaction.getNonce()).isNotEqualTo(1);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
   }
 
@@ -172,7 +174,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           assertThat(transaction.getNonce()).isNotEqualTo(2);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
   }
 
@@ -190,19 +192,19 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           iterationOrder.add(transaction);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
 
     assertThat(iterationOrder)
         .containsExactly(localTransaction1, localTransaction2, localTransaction0);
 
-    transactions.updateBaseFee(110L);
+    transactions.updateBaseFee(Wei.of(110L));
 
     final List<Transaction> iterationOrderAfterBaseIncreased = new ArrayList<>();
     transactions.selectTransactions(
         transaction -> {
           iterationOrderAfterBaseIncreased.add(transaction);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
 
     assertThat(iterationOrderAfterBaseIncreased)
@@ -215,7 +217,7 @@ public class PendingMultiTypesTransactionsTest {
     final Transaction localTransaction1 = create1559Transaction(1, 100, 20, KEYS2);
     final Transaction localTransaction2 = create1559Transaction(2, 100, 19, KEYS2);
 
-    transactions.updateBaseFee(110L);
+    transactions.updateBaseFee(Wei.of(110L));
 
     transactions.addLocalTransaction(localTransaction0);
     transactions.addLocalTransaction(localTransaction1);
@@ -225,19 +227,19 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           iterationOrder.add(transaction);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
 
     assertThat(iterationOrder)
         .containsExactly(localTransaction0, localTransaction1, localTransaction2);
 
-    transactions.updateBaseFee(50L);
+    transactions.updateBaseFee(Wei.of(50L));
 
     final List<Transaction> iterationOrderAfterBaseIncreased = new ArrayList<>();
     transactions.selectTransactions(
         transaction -> {
           iterationOrderAfterBaseIncreased.add(transaction);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
 
     assertThat(iterationOrderAfterBaseIncreased)
@@ -260,7 +262,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           iterationOrder.add(transaction);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
 
     assertThat(iterationOrder)
@@ -284,7 +286,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           iterationOrder.add(transaction);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
 
     assertThat(iterationOrder)
@@ -298,7 +300,7 @@ public class PendingMultiTypesTransactionsTest {
     transactions.selectTransactions(
         transaction -> {
           iterationOrder.add(transaction);
-          return PendingTransactions.TransactionSelectionResult.CONTINUE;
+          return TransactionSelectionResult.CONTINUE;
         });
 
     assertThat(iterationOrder).isEmpty();
@@ -367,7 +369,7 @@ public class PendingMultiTypesTransactionsTest {
         .createTransaction(keyPair);
   }
 
-  private BlockHeader mockBlockHeader(final long baseFee) {
+  private BlockHeader mockBlockHeader(final Wei baseFee) {
     when(blockHeader.getBaseFee()).thenReturn(Optional.of(baseFee));
     return blockHeader;
   }

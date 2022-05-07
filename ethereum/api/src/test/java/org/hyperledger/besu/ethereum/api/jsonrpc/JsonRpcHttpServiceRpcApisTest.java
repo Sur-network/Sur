@@ -21,6 +21,7 @@ import static org.mockito.Mockito.spy;
 
 import org.hyperledger.besu.config.StubGenesisConfigOptions;
 import org.hyperledger.besu.crypto.NodeKeyUtils;
+import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.health.HealthService;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.filter.FilterManager;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonRpcMethod;
@@ -93,7 +94,7 @@ public class JsonRpcHttpServiceRpcApisTest {
   private static final List<String> netServices =
       new ArrayList<>(Arrays.asList("jsonrpc", "ws", "p2p", "metrics"));
 
-  @Mock protected static BlockchainQueries blockchainQueries;
+  @Mock protected BlockchainQueries blockchainQueries;
 
   private final JsonRpcTestHelper testHelper = new JsonRpcTestHelper();
   private final NatService natService = new NatService(Optional.empty());
@@ -125,7 +126,7 @@ public class JsonRpcHttpServiceRpcApisTest {
 
   @Test
   public void requestWithNetMethodShouldSucceedWhenNetApiIsEnabled() throws Exception {
-    service = createJsonRpcHttpServiceWithRpcApis(RpcApis.NET);
+    service = createJsonRpcHttpServiceWithRpcApis(RpcApis.NET.name());
     final String id = "123";
     final RequestBody body =
         RequestBody.create(
@@ -140,7 +141,7 @@ public class JsonRpcHttpServiceRpcApisTest {
   @Test
   public void requestWithNetMethodShouldSuccessWithCode200WhenNetApiIsNotEnabled()
       throws Exception {
-    service = createJsonRpcHttpServiceWithRpcApis(RpcApis.WEB3);
+    service = createJsonRpcHttpServiceWithRpcApis(RpcApis.WEB3.name());
     final String id = "123";
     final RequestBody body =
         RequestBody.create(
@@ -159,7 +160,7 @@ public class JsonRpcHttpServiceRpcApisTest {
 
   @Test
   public void requestWithNetMethodShouldSucceedWhenNetApiAndOtherIsEnabled() throws Exception {
-    service = createJsonRpcHttpServiceWithRpcApis(RpcApis.NET, RpcApis.WEB3);
+    service = createJsonRpcHttpServiceWithRpcApis(RpcApis.NET.name(), RpcApis.WEB3.name());
     final String id = "123";
     final RequestBody body =
         RequestBody.create(
@@ -171,7 +172,7 @@ public class JsonRpcHttpServiceRpcApisTest {
     }
   }
 
-  private JsonRpcConfiguration createJsonRpcConfigurationWithRpcApis(final RpcApi... rpcApis) {
+  private JsonRpcConfiguration createJsonRpcConfigurationWithRpcApis(final String... rpcApis) {
     final JsonRpcConfiguration config = JsonRpcConfiguration.createDefault();
     config.setCorsAllowedDomains(singletonList("*"));
     config.setPort(0);
@@ -181,7 +182,7 @@ public class JsonRpcHttpServiceRpcApisTest {
     return config;
   }
 
-  private JsonRpcHttpService createJsonRpcHttpServiceWithRpcApis(final RpcApi... rpcApis)
+  private JsonRpcHttpService createJsonRpcHttpServiceWithRpcApis(final String... rpcApis)
       throws Exception {
     return createJsonRpcHttpServiceWithRpcApis(createJsonRpcConfigurationWithRpcApis(rpcApis));
   }
@@ -203,6 +204,7 @@ public class JsonRpcHttpServiceRpcApisTest {
                     blockchainQueries,
                     mock(Synchronizer.class),
                     ProtocolScheduleFixture.MAINNET,
+                    mock(ProtocolContext.class),
                     mock(FilterManager.class),
                     mock(TransactionPool.class),
                     mock(PoWMiningCoordinator.class),
@@ -300,6 +302,7 @@ public class JsonRpcHttpServiceRpcApisTest {
                     blockchainQueries,
                     mock(Synchronizer.class),
                     ProtocolScheduleFixture.MAINNET,
+                    mock(ProtocolContext.class),
                     mock(FilterManager.class),
                     mock(TransactionPool.class),
                     mock(PoWMiningCoordinator.class),

@@ -28,6 +28,7 @@ import org.hyperledger.besu.consensus.common.bft.ConsensusRoundHelpers;
 import org.hyperledger.besu.consensus.common.bft.ConsensusRoundIdentifier;
 import org.hyperledger.besu.consensus.common.bft.ProposedBlockHelpers;
 import org.hyperledger.besu.consensus.common.bft.payload.SignedData;
+import org.hyperledger.besu.consensus.qbft.QbftContext;
 import org.hyperledger.besu.consensus.qbft.QbftExtraDataCodec;
 import org.hyperledger.besu.consensus.qbft.messagewrappers.Prepare;
 import org.hyperledger.besu.consensus.qbft.messagewrappers.Proposal;
@@ -35,12 +36,13 @@ import org.hyperledger.besu.consensus.qbft.messagewrappers.RoundChange;
 import org.hyperledger.besu.consensus.qbft.payload.PreparePayload;
 import org.hyperledger.besu.consensus.qbft.payload.PreparedRoundMetadata;
 import org.hyperledger.besu.consensus.qbft.payload.RoundChangePayload;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.BlockValidator.BlockProcessingOutputs;
+import org.hyperledger.besu.ethereum.BlockValidator.Result;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 
@@ -95,7 +97,8 @@ public class ProposalValidatorTest {
         new ProtocolContext(
             blockChain,
             worldStateArchive,
-            setupContextWithBftExtraDataEncoder(emptyList(), bftExtraDataEncoder));
+            setupContextWithBftExtraDataEncoder(
+                QbftContext.class, emptyList(), bftExtraDataEncoder));
 
     // typically tests require the blockValidation to be successful
     when(blockValidator.validateAndProcessBlock(
@@ -103,7 +106,7 @@ public class ProposalValidatorTest {
             any(),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.of(new BlockProcessingOutputs(null, null)));
+        .thenReturn(new Result(new BlockProcessingOutputs(null, null)));
 
     roundItems.put(ROUND_ID.ZERO, createRoundSpecificItems(0));
     roundItems.put(ROUND_ID.ONE, createRoundSpecificItems(1));
@@ -155,7 +158,7 @@ public class ProposalValidatorTest {
             any(),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL)))
-        .thenReturn(Optional.empty());
+        .thenReturn(new Result("Failed"));
 
     assertThat(roundItem.messageValidator.validate(proposal)).isFalse();
   }

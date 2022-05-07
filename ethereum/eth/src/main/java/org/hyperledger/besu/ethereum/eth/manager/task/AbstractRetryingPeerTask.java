@@ -29,8 +29,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A task that will retry a fixed number of times before completing the associated CompletableFuture
@@ -41,7 +41,7 @@ import org.apache.logging.log4j.Logger;
  */
 public abstract class AbstractRetryingPeerTask<T> extends AbstractEthTask<T> {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(AbstractRetryingPeerTask.class);
   private final EthContext ethContext;
   private final int maxRetries;
   private final Predicate<T> isEmptyResponse;
@@ -69,6 +69,10 @@ public abstract class AbstractRetryingPeerTask<T> extends AbstractEthTask<T> {
 
   public void assignPeer(final EthPeer peer) {
     assignedPeer = Optional.of(peer);
+  }
+
+  public Optional<EthPeer> getAssignedPeer() {
+    return assignedPeer;
   }
 
   @Override
@@ -100,7 +104,7 @@ public abstract class AbstractRetryingPeerTask<T> extends AbstractEthTask<T> {
 
   protected abstract CompletableFuture<T> executePeerTask(Optional<EthPeer> assignedPeer);
 
-  private void handleTaskError(final Throwable error) {
+  protected void handleTaskError(final Throwable error) {
     final Throwable cause = ExceptionUtils.rootCause(error);
     if (!isRetryableError(cause)) {
       // Complete exceptionally
@@ -109,7 +113,9 @@ public abstract class AbstractRetryingPeerTask<T> extends AbstractEthTask<T> {
     }
 
     if (cause instanceof NoAvailablePeersException) {
-      LOG.info("No peers available, waiting for peers: {}", ethContext.getEthPeers().peerCount());
+      LOG.info(
+          "No useful peer available, waiting for more peers: {}",
+          ethContext.getEthPeers().peerCount());
       // Wait for new peer to connect
       final WaitForPeerTask waitTask = WaitForPeerTask.create(ethContext, metricsSystem);
       executeSubTask(
@@ -133,13 +139,21 @@ public abstract class AbstractRetryingPeerTask<T> extends AbstractEthTask<T> {
                 .scheduleFutureTask(this::executeTaskTimed, Duration.ofSeconds(1)));
   }
 
-  private boolean isRetryableError(final Throwable error) {
+  protected boolean isRetryableError(final Throwable error) {
     final boolean isPeerError =
         error instanceof PeerBreachedProtocolException
             || error instanceof PeerDisconnectedException
             || error instanceof NoAvailablePeersException;
 
     return error instanceof TimeoutException || (!assignedPeer.isPresent() && isPeerError);
+  }
+
+  protected EthContext getEthContext() {
+    return ethContext;
+  }
+
+  protected MetricsSystem getMetricsSystem() {
+    return metricsSystem;
   }
 
   public int getRetryCount() {

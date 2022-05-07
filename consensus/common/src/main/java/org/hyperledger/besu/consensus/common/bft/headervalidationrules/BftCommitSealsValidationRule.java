@@ -16,10 +16,9 @@ package org.hyperledger.besu.consensus.common.bft.headervalidationrules;
 
 import static org.hyperledger.besu.consensus.common.bft.BftHelpers.calculateRequiredValidatorQuorum;
 
-import org.hyperledger.besu.consensus.common.ValidatorProvider;
 import org.hyperledger.besu.consensus.common.bft.BftContext;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.AttachedBlockHeaderValidationRule;
 
@@ -28,8 +27,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Ensures the commit seals in the block header were created by known validators (as determined by
@@ -39,14 +38,14 @@ import org.apache.logging.log4j.Logger;
  */
 public class BftCommitSealsValidationRule implements AttachedBlockHeaderValidationRule {
 
-  private static final Logger LOGGER = LogManager.getLogger();
+  private static final Logger LOGGER = LoggerFactory.getLogger(BftCommitSealsValidationRule.class);
 
   @Override
   public boolean validate(
       final BlockHeader header, final BlockHeader parent, final ProtocolContext protocolContext) {
-    final BftContext bftContext = protocolContext.getConsensusState(BftContext.class);
-    final ValidatorProvider validatorProvider =
-        bftContext.getVoteTallyCache().getVoteTallyAfterBlock(parent);
+    final BftContext bftContext = protocolContext.getConsensusContext(BftContext.class);
+    final Collection<Address> storedValidators =
+        bftContext.getValidatorProvider().getValidatorsAfterBlock(parent);
 
     final List<Address> committers = bftContext.getBlockInterface().getCommitters(header);
     final List<Address> committersWithoutDuplicates = new ArrayList<>(new HashSet<>(committers));
@@ -56,7 +55,7 @@ public class BftCommitSealsValidationRule implements AttachedBlockHeaderValidati
       return false;
     }
 
-    return validateCommitters(committersWithoutDuplicates, validatorProvider.getValidators());
+    return validateCommitters(committersWithoutDuplicates, storedValidators);
   }
 
   private boolean validateCommitters(

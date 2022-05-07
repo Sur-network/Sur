@@ -14,7 +14,6 @@
  */
 package org.hyperledger.besu.ethereum.retesteth.methods;
 
-import org.hyperledger.besu.config.experimental.ExperimentalEIPs;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
@@ -28,12 +27,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import io.vertx.core.json.JsonObject;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestSetChainParams implements JsonRpcMethod {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(TestSetChainParams.class);
 
   public static final String METHOD_NAME = "test_setChainParams";
   private final RetestethContext context;
@@ -123,6 +122,8 @@ public class TestSetChainParams implements JsonRpcMethod {
     maybeMoveToNumber(params, "istanbulForkBlock", config, "istanbulBlock");
     maybeMoveToNumber(params, "muirGlacierForkBlock", config, "muirGlacierBlock");
     maybeMoveToNumber(params, "berlinForkBlock", config, "berlinBlock");
+    maybeMoveToNumber(params, "londonForkBlock", config, "londonBlock");
+    maybeMoveToNumber(params, "arrowGlacierForkBlock", config, "arrowGlacierBlock");
     maybeMoveToNumber(params, "chainID", config, "chainId", 1);
 
     maybeMove(genesis, "author", chainParamsJson, "coinbase");
@@ -133,17 +134,7 @@ public class TestSetChainParams implements JsonRpcMethod {
     maybeMove(genesis, "nonce", chainParamsJson, "nonce");
     maybeMove(genesis, "timestamp", chainParamsJson, "timestamp");
     maybeMove(chainParamsJson, "accounts", chainParamsJson, "alloc");
-
-    if (params.containsKey("londonForkBlock")) {
-      JsonObject genesisConfig = chainParamsJson.getJsonObject("genesis", new JsonObject());
-      ExperimentalEIPs.initialBasefee =
-          Optional.ofNullable(
-                  genesisConfig.getString("baseFeePerGas", genesisConfig.getString("baseFee")))
-              .map(Long::decode)
-              .orElse(ExperimentalEIPs.EIP1559_BASEFEE_DEFAULT_VALUE);
-    }
-
-    maybeMoveToNumber(params, "londonForkBlock", config, "londonBlock");
+    maybeMove(genesis, "baseFeePerGas", chainParamsJson, "baseFeePerGas");
 
     // strip out precompiles with zero balance
     final JsonObject alloc = chainParamsJson.getJsonObject("alloc");

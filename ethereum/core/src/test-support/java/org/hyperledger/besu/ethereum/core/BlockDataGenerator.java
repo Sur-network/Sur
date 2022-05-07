@@ -23,9 +23,19 @@ import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.SecureRandomProvider;
 import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
+import org.hyperledger.besu.evm.AccessListEntry;
+import org.hyperledger.besu.evm.account.Account;
+import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.evm.log.Log;
+import org.hyperledger.besu.evm.log.LogTopic;
+import org.hyperledger.besu.evm.log.LogsBloomFilter;
+import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.TransactionType;
 
 import java.math.BigInteger;
@@ -174,7 +184,6 @@ public class BlockDataGenerator {
       if (random.nextFloat() < percentContractAccounts) {
         // Some percentage of accounts are contract accounts
         account.setCode(bytesValue(5, 50));
-        account.setVersion(Account.DEFAULT_VERSION);
         if (random.nextFloat() < percentContractAccountsWithNonEmptyStorage) {
           // Add some storage for contract accounts
           final int storageValues = random.nextInt(20) + 10;
@@ -296,7 +305,7 @@ public class BlockDataGenerator {
             .nonce(blockNonce)
             .blockHeaderFunctions(
                 options.getBlockHeaderFunctions(new MainnetBlockHeaderFunctions()));
-    options.getBaseFee(Optional.of(uint256(2).toLong())).ifPresent(blockHeaderBuilder::baseFee);
+    options.getBaseFee(Optional.of(Wei.of(uint256(2)))).ifPresent(blockHeaderBuilder::baseFee);
     return blockHeaderBuilder.buildBlockHeader();
   }
 
@@ -620,7 +629,7 @@ public class BlockDataGenerator {
     private boolean hasTransactions = true;
     private TransactionType[] transactionTypes = TransactionType.values();
     private Optional<Address> coinbase = Optional.empty();
-    private Optional<Optional<Long>> maybeBaseFee = Optional.empty();
+    private Optional<Optional<Wei>> maybeBaseFee = Optional.empty();
 
     public static BlockOptions create() {
       return new BlockOptions();
@@ -774,11 +783,11 @@ public class BlockDataGenerator {
       return coinbase.orElse(defaultValue);
     }
 
-    public Optional<Long> getBaseFee(final Optional<Long> defaultValue) {
+    public Optional<Wei> getBaseFee(final Optional<Wei> defaultValue) {
       return maybeBaseFee.orElse(defaultValue);
     }
 
-    public BlockOptions setBaseFee(final Optional<Long> baseFee) {
+    public BlockOptions setBaseFee(final Optional<Wei> baseFee) {
       this.maybeBaseFee = Optional.of(baseFee);
       return this;
     }

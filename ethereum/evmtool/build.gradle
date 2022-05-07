@@ -19,7 +19,7 @@ apply plugin: 'application'
 apply plugin: 'idea'
 
 jar {
-  archiveBaseName = 'sur-evmtool'
+  archiveBaseName = 'besu-evmtool'
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,
@@ -31,16 +31,21 @@ jar {
 }
 
 dependencies {
+  api 'org.slf4j:slf4j-api'
+
   implementation project(':besu')
   implementation project(':config')
   implementation project(':crypto')
+  implementation project(':datatypes')
   implementation project(':consensus:clique')
   implementation project(':consensus:common')
   implementation project(':consensus:ibft')
+  implementation project(':consensus:qbft')
   implementation project(':ethereum:api')
   implementation project(':ethereum:core')
   implementation project(':ethereum:referencetests')
   implementation project(':ethereum:rlp')
+  implementation project(':evm')
   implementation project(':metrics:core')
   implementation project(':plugins:rocksdb')
   implementation project(':services:kvstore')
@@ -51,7 +56,6 @@ dependencies {
   implementation 'com.google.guava:guava'
   implementation 'info.picocli:picocli'
   implementation 'io.vertx:vertx-core'
-  implementation 'org.apache.logging.log4j:log4j-api'
   implementation 'org.apache.logging.log4j:log4j-core'
 
   annotationProcessor 'com.google.dagger:dagger-compiler'
@@ -120,7 +124,7 @@ task dockerUpload(type: Exec) {
   def cmd = "docker push '${image}'"
   def additionalTags = []
 
-  if (project.hasProperty('branch') && project.property('branch') == 'master') {
+  if (project.hasProperty('branch') && project.property('branch') == 'main') {
     additionalTags.add('develop')
   }
 

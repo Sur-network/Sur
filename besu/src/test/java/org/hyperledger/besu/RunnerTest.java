@@ -16,7 +16,6 @@ package org.hyperledger.besu;
 
 import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hyperledger.besu.cli.config.EthNetworkConfig.DEV_NETWORK_ID;
 import static org.hyperledger.besu.cli.config.NetworkName.DEV;
 
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
@@ -27,16 +26,16 @@ import org.hyperledger.besu.controller.MainnetBesuControllerBuilder;
 import org.hyperledger.besu.crypto.KeyPairUtil;
 import org.hyperledger.besu.crypto.NodeKey;
 import org.hyperledger.besu.crypto.NodeKeyUtils;
+import org.hyperledger.besu.ethereum.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.graphql.GraphQLConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.websocket.WebSocketConfiguration;
-import org.hyperledger.besu.ethereum.blockcreation.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockImporter;
 import org.hyperledger.besu.ethereum.core.BlockSyncTestUtils;
 import org.hyperledger.besu.ethereum.core.InMemoryKeyValueStorageProvider;
-import org.hyperledger.besu.ethereum.core.MiningParametersTestBuilder;
+import org.hyperledger.besu.ethereum.core.MiningParameters;
 import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.eth.EthProtocolConfiguration;
 import org.hyperledger.besu.ethereum.eth.sync.SyncMode;
@@ -49,6 +48,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.storage.StorageProvider;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueSegmentIdentifier;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueStorageProviderBuilder;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.ObservableMetricsSystem;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.metrics.prometheus.MetricsConfiguration;
@@ -59,6 +59,7 @@ import org.hyperledger.besu.plugin.services.storage.rocksdb.configuration.RocksD
 import org.hyperledger.besu.services.BesuConfigurationImpl;
 import org.hyperledger.besu.services.BesuPluginContextImpl;
 import org.hyperledger.besu.services.PermissioningServiceImpl;
+import org.hyperledger.besu.services.RpcEndpointServiceImpl;
 import org.hyperledger.besu.testutil.TestClock;
 
 import java.math.BigInteger;
@@ -74,11 +75,11 @@ import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import okhttp3.Call;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -89,12 +90,14 @@ import org.apache.tuweni.units.bigints.UInt256;
 import org.awaitility.Awaitility;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.mockito.junit.MockitoJUnitRunner;
 
 /** Tests for {@link Runner}. */
+@RunWith(MockitoJUnitRunner.class)
 public final class RunnerTest {
 
   private static final int MAX_OPEN_FILES = 1024;
@@ -135,13 +138,11 @@ public final class RunnerTest {
   }
 
   @Test
-  @Ignore
   public void fullSyncFromGenesis() throws Exception {
     syncFromGenesis(SyncMode.FULL, getFastSyncGenesis());
   }
 
   @Test
-  @Ignore
   public void fastSyncFromGenesis() throws Exception {
     syncFromGenesis(SyncMode.FAST, getFastSyncGenesis());
   }
@@ -165,7 +166,7 @@ public final class RunnerTest {
             .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
             .dataDirectory(dataDirAhead)
             .networkId(networkId)
-            .miningParameters(new MiningParametersTestBuilder().enabled(false).build())
+            .miningParameters(new MiningParameters.Builder().enabled(false).build())
             .nodeKey(aheadDbNodeKey)
             .metricsSystem(noOpMetricsSystem)
             .privacyParameters(PrivacyParameters.DEFAULT)
@@ -173,6 +174,7 @@ public final class RunnerTest {
             .transactionPoolConfiguration(TransactionPoolConfiguration.DEFAULT)
             .storageProvider(createKeyValueStorageProvider(dataDirAhead, dbAhead))
             .gasLimitCalculator(GasLimitCalculator.constant())
+            .evmConfiguration(EvmConfiguration.DEFAULT)
             .build()) {
       setupState(blockCount, controller.getProtocolSchedule(), controller.getProtocolContext());
     }
@@ -185,7 +187,7 @@ public final class RunnerTest {
             .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
             .dataDirectory(dataDirAhead)
             .networkId(networkId)
-            .miningParameters(new MiningParametersTestBuilder().enabled(false).build())
+            .miningParameters(new MiningParameters.Builder().enabled(false).build())
             .nodeKey(aheadDbNodeKey)
             .metricsSystem(noOpMetricsSystem)
             .privacyParameters(PrivacyParameters.DEFAULT)
@@ -193,6 +195,7 @@ public final class RunnerTest {
             .transactionPoolConfiguration(TransactionPoolConfiguration.DEFAULT)
             .storageProvider(createKeyValueStorageProvider(dataDirAhead, dbAhead))
             .gasLimitCalculator(GasLimitCalculator.constant())
+            .evmConfiguration(EvmConfiguration.DEFAULT)
             .build();
     final String listenHost = InetAddress.getLoopbackAddress().getHostAddress();
     final JsonRpcConfiguration aheadJsonRpcConfiguration = jsonRpcConfiguration();
@@ -211,7 +214,8 @@ public final class RunnerTest {
             .permissioningService(new PermissioningServiceImpl())
             .staticNodes(emptySet())
             .storageProvider(new InMemoryKeyValueStorageProvider())
-            .forkIdSupplier(() -> Collections.singletonList(Bytes.EMPTY));
+            .forkIdSupplier(() -> Collections.singletonList(Bytes.EMPTY))
+            .rpcEndpointService(new RpcEndpointServiceImpl());
 
     Runner runnerBehind = null;
     final Runner runnerAhead =
@@ -226,10 +230,11 @@ public final class RunnerTest {
             .pidPath(pidPath)
             .besuPluginContext(new BesuPluginContextImpl())
             .forkIdSupplier(() -> controllerAhead.getProtocolManager().getForkIdAsBytesList())
+            .rpcEndpointService(new RpcEndpointServiceImpl())
             .build();
     try {
-
-      runnerAhead.start();
+      runnerAhead.startExternalServices();
+      runnerAhead.startEthereumMainLoop();
       assertThat(pidPath.toFile().exists()).isTrue();
 
       final SynchronizerConfiguration syncConfigBehind =
@@ -252,7 +257,7 @@ public final class RunnerTest {
               .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
               .dataDirectory(dataDirBehind)
               .networkId(networkId)
-              .miningParameters(new MiningParametersTestBuilder().enabled(false).build())
+              .miningParameters(new MiningParameters.Builder().enabled(false).build())
               .nodeKey(NodeKeyUtils.generate())
               .storageProvider(new InMemoryKeyValueStorageProvider())
               .metricsSystem(noOpMetricsSystem)
@@ -260,12 +265,13 @@ public final class RunnerTest {
               .clock(TestClock.fixed())
               .transactionPoolConfiguration(TransactionPoolConfiguration.DEFAULT)
               .gasLimitCalculator(GasLimitCalculator.constant())
+              .evmConfiguration(EvmConfiguration.DEFAULT)
               .build();
       final EnodeURL enode = runnerAhead.getLocalEnode().get();
       final EthNetworkConfig behindEthNetworkConfiguration =
           new EthNetworkConfig(
               EthNetworkConfig.jsonConfig(DEV),
-              DEV_NETWORK_ID,
+              DEV.getNetworkId(),
               Collections.singletonList(enode),
               null);
       runnerBehind =
@@ -281,10 +287,11 @@ public final class RunnerTest {
               .forkIdSupplier(() -> controllerBehind.getProtocolManager().getForkIdAsBytesList())
               .build();
 
-      runnerBehind.start();
+      runnerBehind.startExternalServices();
+      runnerBehind.startEthereumMainLoop();
 
       final int behindJsonRpcPort = runnerBehind.getJsonRpcPort().get();
-      final Call.Factory client = new OkHttpClient();
+      final OkHttpClient client = new OkHttpClient();
       Awaitility.await()
           .ignoreExceptions()
           .atMost(5L, TimeUnit.MINUTES)
@@ -344,27 +351,29 @@ public final class RunnerTest {
                   syncingResp.close();
                 }
               });
-
-      final Future<Void> future = Future.future();
+      final Promise<String> promise = Promise.promise();
       final HttpClient httpClient = vertx.createHttpClient();
-      httpClient.websocket(
+      httpClient.webSocket(
           runnerBehind.getWebsocketPort().get(),
           WebSocketConfiguration.DEFAULT_WEBSOCKET_HOST,
           "/",
           ws -> {
-            ws.writeTextMessage(
-                "{\"id\": 1, \"method\": \"eth_subscribe\", \"params\": [\"syncing\"]}");
-            ws.textMessageHandler(
-                payload -> {
-                  final boolean matches =
-                      payload.equals("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":\"0x0\"}");
-                  if (matches) {
-                    future.complete();
-                  } else {
-                    future.fail("Unexpected result");
-                  }
-                });
+            ws.result()
+                .writeTextMessage(
+                    "{\"id\": 1, \"method\": \"eth_subscribe\", \"params\": [\"syncing\"]}");
+            ws.result()
+                .textMessageHandler(
+                    payload -> {
+                      final boolean matches =
+                          payload.equals("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":\"0x0\"}");
+                      if (matches) {
+                        promise.complete(payload);
+                      } else {
+                        promise.fail("Unexpected result: " + payload);
+                      }
+                    });
           });
+      final Future<String> future = promise.future();
       Awaitility.await()
           .catchUncaughtExceptions()
           .atMost(5L, TimeUnit.MINUTES)
@@ -374,8 +383,6 @@ public final class RunnerTest {
         runnerBehind.close();
         runnerBehind.awaitStop();
       }
-      runnerAhead.close();
-      runnerAhead.awaitStop();
     }
   }
 

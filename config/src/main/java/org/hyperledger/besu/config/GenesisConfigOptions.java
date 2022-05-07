@@ -14,12 +14,17 @@
  */
 package org.hyperledger.besu.config;
 
+import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.Wei;
+
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+
+import org.apache.tuweni.units.bigints.UInt256;
 
 public interface GenesisConfigOptions {
 
@@ -35,6 +40,10 @@ public interface GenesisConfigOptions {
 
   boolean isClique();
 
+  default boolean isConsensusMigration() {
+    return (isIbft2() || isIbftLegacy()) && isQbft();
+  }
+
   String getConsensusEngine();
 
   IbftLegacyConfigOptions getIbftLegacyConfigOptions();
@@ -42,6 +51,10 @@ public interface GenesisConfigOptions {
   CliqueConfigOptions getCliqueConfigOptions();
 
   BftConfigOptions getBftConfigOptions();
+
+  QbftConfigOptions getQbftConfigOptions();
+
+  DiscoveryOptions getDiscoveryOptions();
 
   EthashConfigOptions getEthashConfigOptions();
 
@@ -69,10 +82,17 @@ public interface GenesisConfigOptions {
 
   OptionalLong getLondonBlockNumber();
 
-  // TODO EIP-1559 change for the actual fork name when known
-  OptionalLong getAleutBlockNumber();
+  OptionalLong getArrowGlacierBlockNumber();
 
-  OptionalLong getEIP1559BlockNumber();
+  OptionalLong getPreMergeForkBlockNumber();
+
+  Optional<Wei> getBaseFeePerGas();
+
+  Optional<UInt256> getTerminalTotalDifficulty();
+
+  OptionalLong getTerminalBlockNumber();
+
+  Optional<Hash> getTerminalBlockHash();
 
   List<Long> getForks();
 
@@ -191,6 +211,15 @@ public interface GenesisConfigOptions {
   OptionalLong getMagnetoBlockNumber();
 
   /**
+   * Block number to activate Mystique on Classic networks.
+   *
+   * @return block number of Mystique fork on Classic networks
+   * @see <a
+   *     href="https://ecips.ethereumclassic.org/ECIPs/ecip-1104">https://ecips.ethereumclassic.org/ECIPs/ecip-1104</a>
+   */
+  OptionalLong getMystiqueBlockNumber();
+
+  /**
    * Block number to activate ECIP-1049 on Classic networks. Changes the hashing algorithm to
    * keccak-256.
    *
@@ -230,7 +259,7 @@ public interface GenesisConfigOptions {
   boolean isQuorum();
 
   /**
-   * Block number to activate Quorum Permissioning. This options is used on Quorum-compatibility
+   * Block number to activate Quorum Permissioning. This option is used on Quorum-compatibility
    * mode.
    *
    * @return block number to activate Quorum Permissioning

@@ -21,19 +21,20 @@ import org.hyperledger.besu.nativelib.secp256k1.LibSecp256k1.secp256k1_ecdsa_rec
 import org.hyperledger.besu.nativelib.secp256k1.LibSecp256k1.secp256k1_ecdsa_signature;
 import org.hyperledger.besu.nativelib.secp256k1.LibSecp256k1.secp256k1_pubkey;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.LongByReference;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.crypto.signers.DSAKCalculator;
 import org.bouncycastle.crypto.signers.HMacDSAKCalculator;
 import org.bouncycastle.math.ec.custom.sec.SecP256K1Curve;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /*
  * Adapted from the BitcoinJ ECKey (Apache 2 License) implementation:
@@ -45,7 +46,7 @@ import org.bouncycastle.math.ec.custom.sec.SecP256K1Curve;
  */
 public class SECP256K1 extends AbstractSECP256 {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(SECP256K1.class);
 
   private boolean useNative;
 
@@ -117,7 +118,12 @@ public class SECP256K1 extends AbstractSECP256 {
   public Optional<SECPPublicKey> recoverPublicKeyFromSignature(
       final Bytes32 dataHash, final SECPSignature signature) {
     if (useNative) {
-      return recoverFromSignatureNative(dataHash, signature);
+      Optional<SECPPublicKey> result = recoverFromSignatureNative(dataHash, signature);
+      if (result.isEmpty()) {
+        throw new IllegalArgumentException("Could not recover public key");
+      } else {
+        return result;
+      }
     } else {
       return super.recoverPublicKeyFromSignature(dataHash, signature);
     }
@@ -184,6 +190,18 @@ public class SECP256K1 extends AbstractSECP256 {
         != 0;
   }
 
+  @Override
+  protected BigInteger recoverFromSignature(
+      final int recId, final BigInteger r, final BigInteger s, final Bytes32 dataHash) {
+    if (useNative) {
+      return recoverFromSignatureNative(dataHash, new SECPSignature(r, s, (byte) recId))
+          .map(key -> new BigInteger(1, key.getEncoded()))
+          .orElse(null);
+    } else {
+      return super.recoverFromSignature(recId, r, s, dataHash);
+    }
+  }
+
   private Optional<SECPPublicKey> recoverFromSignatureNative(
       final Bytes32 dataHash, final SECPSignature signature) {
 
@@ -205,7 +223,7 @@ public class SECP256K1 extends AbstractSECP256 {
     if (LibSecp256k1.secp256k1_ecdsa_recover(
             LibSecp256k1.CONTEXT, newPubKey, parsedSignature, dataHash.toArrayUnsafe())
         == 0) {
-      throw new IllegalArgumentException("Could not recover public key");
+      return Optional.empty();
     }
 
     // parse the key

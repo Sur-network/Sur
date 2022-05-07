@@ -28,11 +28,11 @@ import org.hyperledger.besu.consensus.qbft.messagewrappers.Proposal;
 import org.hyperledger.besu.consensus.qbft.payload.PreparePayload;
 import org.hyperledger.besu.consensus.qbft.payload.PreparedRoundMetadata;
 import org.hyperledger.besu.consensus.qbft.payload.RoundChangePayload;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.core.Address;
 import org.hyperledger.besu.ethereum.core.Block;
-import org.hyperledger.besu.ethereum.core.Hash;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -40,12 +40,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ProposalValidator {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(ProposalValidator.class);
   private static final String ERROR_PREFIX = "Invalid Proposal Payload";
 
   private final BlockValidator blockValidator;
@@ -77,7 +77,7 @@ public class ProposalValidator {
 
     final ProposalPayloadValidator payloadValidator =
         new ProposalPayloadValidator(
-            expectedProposer, roundIdentifier, blockValidator, protocolContext);
+            expectedProposer, roundIdentifier, blockValidator, protocolContext, bftExtraDataCodec);
 
     if (!payloadValidator.validate(msg.getSignedPayload())) {
       LOG.info("{}: invalid proposal payload in proposal message", ERROR_PREFIX);
@@ -123,7 +123,7 @@ public class ProposalValidator {
         // Need to check that if we substitute the LatestPrepareCert round number into the supplied
         // block that we get the SAME hash as PreparedCert.
         final BftBlockInterface bftBlockInterface =
-            protocolContext.getConsensusState(BftContext.class).getBlockInterface();
+            protocolContext.getConsensusContext(BftContext.class).getBlockInterface();
         final Block currentBlockWithOldRound =
             bftBlockInterface.replaceRoundInBlock(
                 proposal.getBlock(),

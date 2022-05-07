@@ -15,9 +15,9 @@
 package org.hyperledger.besu.consensus.clique;
 
 import org.hyperledger.besu.crypto.SECPSignature;
-import org.hyperledger.besu.ethereum.core.Address;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.Hash;
 import org.hyperledger.besu.ethereum.core.Util;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
 
@@ -92,7 +92,7 @@ public class CliqueBlockHashing {
     out.writeBytes(extraDataSerializer.get());
     out.writeBytes(header.getMixHash());
     out.writeLong(header.getNonce());
-    header.getBaseFee().ifPresent(out::writeLongScalar);
+    header.getBaseFee().ifPresent(out::writeUInt256Scalar);
     out.endList();
     return out.encoded();
   }

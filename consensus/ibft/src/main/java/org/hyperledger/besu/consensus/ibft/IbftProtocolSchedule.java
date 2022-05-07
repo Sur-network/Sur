@@ -14,122 +14,61 @@
  */
 package org.hyperledger.besu.consensus.ibft;
 
-import static org.hyperledger.besu.consensus.ibft.IbftBlockHeaderValidationRulesetFactory.ibftBlockHeaderValidator;
-
+import org.hyperledger.besu.config.BftConfigOptions;
 import org.hyperledger.besu.config.GenesisConfigOptions;
-import org.hyperledger.besu.config.IbftConfigOptions;
-import org.hyperledger.besu.ethereum.MainnetBlockValidator;
-import org.hyperledger.besu.ethereum.core.Address;
+import org.hyperledger.besu.consensus.common.ForksSchedule;
+import org.hyperledger.besu.consensus.common.bft.BaseBftProtocolSchedule;
+import org.hyperledger.besu.consensus.common.bft.BftExtraDataCodec;
 import org.hyperledger.besu.ethereum.core.PrivacyParameters;
-import org.hyperledger.besu.ethereum.core.Wei;
-import org.hyperledger.besu.ethereum.mainnet.MainnetBlockBodyValidator;
-import org.hyperledger.besu.ethereum.mainnet.MainnetBlockImporter;
-import org.hyperledger.besu.ethereum.mainnet.MainnetProtocolSpecs;
+import org.hyperledger.besu.ethereum.mainnet.BlockHeaderValidator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder;
-import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecBuilder;
+import org.hyperledger.besu.ethereum.mainnet.feemarket.BaseFeeMarket;
+import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 
-import java.math.BigInteger;
 import java.util.Optional;
 
-/** Defines the protocol behaviours for a blockchain using IBFT. */
-public class IbftProtocolSchedule {
-
-  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(262);
+/** Defines the protocol behaviours for a blockchain using a BFT consensus mechanism. */
+public class IbftProtocolSchedule extends BaseBftProtocolSchedule {
 
   public static ProtocolSchedule create(
       final GenesisConfigOptions config,
+      final ForksSchedule<BftConfigOptions> forksSchedule,
       final PrivacyParameters privacyParameters,
-      final boolean isRevertReasonEnabled) {
-    Optional<BigInteger> chainId = config.getChainId();
-    IbftConfigOptions ibftConfig = config.getIbft2ConfigOptions();
-    if (chainId.isPresent()
-        && chainId.get().equals(DEFAULT_CHAIN_ID)
-        && ibftConfig.getBlockRewardWei().signum() < 0) {
-      return new ProtocolScheduleBuilder(
-              config,
-              DEFAULT_CHAIN_ID,
-              builder -> applyIbftChanges(config.getChainId(), ibftConfig, builder),
-              privacyParameters,
-              isRevertReasonEnabled,
-              config.isQuorum())
-          .createProtocolSchedule(
-              MainnetProtocolSpecs.surDefinitions(
-                  chainId,
-                  config.getContractSizeLimit(),
-                  config.getEvmStackSize(),
-                  isRevertReasonEnabled,
-                  config.isQuorum()));
-    } else {
-      return new ProtocolScheduleBuilder(
-              config,
-              DEFAULT_CHAIN_ID,
-              builder -> applyIbftChanges(config.getChainId(), ibftConfig, builder),
-              privacyParameters,
-              isRevertReasonEnabled,
-              config.isQuorum())
-          .createProtocolSchedule();
-    }
+      final boolean isRevertReasonEnabled,
+      final BftExtraDataCodec bftExtraDataCodec,
+      final EvmConfiguration evmConfiguration) {
+    return new IbftProtocolSchedule()
+        .createProtocolSchedule(
+            config,
+            forksSchedule,
+            privacyParameters,
+            isRevertReasonEnabled,
+            bftExtraDataCodec,
+            evmConfiguration);
   }
 
   public static ProtocolSchedule create(
-      final GenesisConfigOptions config, final boolean isRevertReasonEnabled) {
-    return create(config, PrivacyParameters.DEFAULT, isRevertReasonEnabled);
+      final GenesisConfigOptions config,
+      final ForksSchedule<BftConfigOptions> forksSchedule,
+      final BftExtraDataCodec bftExtraDataCodec,
+      final EvmConfiguration evmConfiguration) {
+    return create(
+        config,
+        forksSchedule,
+        PrivacyParameters.DEFAULT,
+        false,
+        bftExtraDataCodec,
+        evmConfiguration);
   }
 
-  public static ProtocolSchedule create(final GenesisConfigOptions config) {
-    return create(config, PrivacyParameters.DEFAULT, false);
-  }
+  @Override
+  protected BlockHeaderValidator.Builder createBlockHeaderRuleset(
+      final BftConfigOptions config, final FeeMarket feeMarket) {
+    final Optional<BaseFeeMarket> baseFeeMarket =
+        Optional.of(feeMarket).filter(FeeMarket::implementsBaseFee).map(BaseFeeMarket.class::cast);
 
-  private static ProtocolSpecBuilder applyIbftChanges(
-      final Optional<BigInteger> chainId,
-      final IbftConfigOptions ibftConfig,
-      final ProtocolSpecBuilder builder) {
-
-    if (ibftConfig.getEpochLength() <= 0) {
-      throw new IllegalArgumentException("Epoch length in config must be greater than zero");
-    }
-
-    if (chainId.isPresent()
-        && chainId.get().equals(DEFAULT_CHAIN_ID)
-        && ibftConfig.getBlockRewardWei().signum() < 0) {
-      builder
-          .blockHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
-          .ommerHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
-          .blockBodyValidatorBuilder(MainnetBlockBodyValidator::new)
-          .blockValidatorBuilder(MainnetBlockValidator::new)
-          .blockImporterBuilder(MainnetBlockImporter::new)
-          .difficultyCalculator((time, parent, protocolContext) -> BigInteger.ONE)
-          .skipZeroBlockRewards(true)
-          .blockHeaderFunctions(IbftBlockHeaderFunctions.forOnChainBlock());
-    } else {
-      if (ibftConfig.getBlockRewardWei().signum() < 0) {
-        throw new IllegalArgumentException("Ibft2 Block reward in config cannot be negative");
-      }
-
-      builder
-          .blockHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
-          .ommerHeaderValidatorBuilder(ibftBlockHeaderValidator(ibftConfig.getBlockPeriodSeconds()))
-          .blockBodyValidatorBuilder(MainnetBlockBodyValidator::new)
-          .blockValidatorBuilder(MainnetBlockValidator::new)
-          .blockImporterBuilder(MainnetBlockImporter::new)
-          .difficultyCalculator((time, parent, protocolContext) -> BigInteger.ONE)
-          .blockReward(Wei.of(ibftConfig.getBlockRewardWei()))
-          .skipZeroBlockRewards(true)
-          .blockHeaderFunctions(IbftBlockHeaderFunctions.forOnChainBlock());
-    }
-    if (ibftConfig.getMiningBeneficiary().isPresent()) {
-      final Address miningBeneficiary;
-      try {
-        // Precalculate beneficiary to ensure string is valid now, rather than on lambda execution.
-        miningBeneficiary = Address.fromHexString(ibftConfig.getMiningBeneficiary().get());
-      } catch (final IllegalArgumentException e) {
-        throw new IllegalArgumentException(
-            "Mining beneficiary in config is not a valid ethereum address", e);
-      }
-      builder.miningBeneficiaryCalculator(header -> miningBeneficiary);
-    }
-
-    return builder;
+    return IbftBlockHeaderValidationRulesetFactory.blockHeaderValidator(
+        config.getBlockPeriodSeconds(), baseFeeMarket);
   }
 }

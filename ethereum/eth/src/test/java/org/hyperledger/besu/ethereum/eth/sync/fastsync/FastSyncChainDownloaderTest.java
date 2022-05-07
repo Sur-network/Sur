@@ -108,7 +108,7 @@ public class FastSyncChainDownloaderTest {
         ethContext,
         syncState,
         new NoOpMetricsSystem(),
-        otherBlockchain.getBlockHeader(pivotBlockNumber).get());
+        new FastSyncState(otherBlockchain.getBlockHeader(pivotBlockNumber).get()));
   }
 
   @Test
@@ -173,7 +173,7 @@ public class FastSyncChainDownloaderTest {
         EthProtocolManagerTestUtil.createPeer(ethProtocolManager, shorterChain);
     final RespondingEthPeer.Responder shorterResponder =
         RespondingEthPeer.blockchainResponder(shorterChain);
-    // Doesn't respond to requests for checkpoints unless it's starting from geneis
+    // Doesn't respond to requests for checkpoints unless it's starting from genesis
     // So the import can only make it as far as block 15 (3 checkpoints 5 blocks apart)
     final RespondingEthPeer.Responder shorterLimitedRangeResponder =
         RespondingEthPeer.targetedResponder(

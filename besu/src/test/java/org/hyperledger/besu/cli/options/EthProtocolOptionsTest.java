@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.cli.options;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -22,7 +23,10 @@ import org.hyperledger.besu.ethereum.eth.EthProtocolConfiguration;
 import org.hyperledger.besu.util.number.PositiveNumber;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.junit.MockitoJUnitRunner;
 
+@RunWith(MockitoJUnitRunner.class)
 public class EthProtocolOptionsTest
     extends AbstractCLIOptionsTest<EthProtocolConfiguration, EthProtocolOptions> {
 
@@ -34,16 +38,16 @@ public class EthProtocolOptionsTest
     final EthProtocolOptions options = getOptionsFromBesuCommand(cmd);
     final EthProtocolConfiguration config = options.toDomainObject();
     assertThat(config.getMaxGetBlockHeaders()).isEqualTo(13);
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString()).isEmpty();
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
   }
 
   @Test
   public void parsesInvalidEwpMaxGetHeadersOptionsShouldFail() {
     parseCommand("--Xewp-max-get-headers", "-13");
     verifyNoInteractions(mockRunnerBuilder);
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString())
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8))
         .contains(
             "Invalid value for option '--Xewp-max-get-headers': cannot convert '-13' to PositiveNumber");
   }
@@ -56,16 +60,16 @@ public class EthProtocolOptionsTest
     final EthProtocolConfiguration config = options.toDomainObject();
     assertThat(config.getMaxGetBlockBodies()).isEqualTo(14);
 
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString()).isEmpty();
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
   }
 
   @Test
   public void parsesInvalidEwpMaxGetBodiesOptionsShouldFail() {
     parseCommand("--Xewp-max-get-bodies", "-14");
     verifyNoInteractions(mockRunnerBuilder);
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString())
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8))
         .contains(
             "Invalid value for option '--Xewp-max-get-bodies': cannot convert '-14' to PositiveNumber");
   }
@@ -78,8 +82,8 @@ public class EthProtocolOptionsTest
     final EthProtocolConfiguration config = options.toDomainObject();
     assertThat(config.getMaxGetReceipts()).isEqualTo(15);
 
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString()).isEmpty();
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
   }
 
   @Test
@@ -87,8 +91,8 @@ public class EthProtocolOptionsTest
     parseCommand("--Xewp-max-get-receipts", "-15");
 
     verifyNoInteractions(mockRunnerBuilder);
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString())
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8))
         .contains(
             "Invalid value for option '--Xewp-max-get-receipts': cannot convert '-15' to PositiveNumber");
   }
@@ -101,16 +105,16 @@ public class EthProtocolOptionsTest
     final EthProtocolConfiguration config = options.toDomainObject();
     assertThat(config.getMaxGetNodeData()).isEqualTo(16);
 
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString()).isEmpty();
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
   }
 
   @Test
   public void parsesInvalidEwpMaxGetNodeDataOptionsShouldFail() {
     parseCommand("--Xewp-max-get-node-data", "-16");
     verifyNoInteractions(mockRunnerBuilder);
-    assertThat(commandOutput.toString()).isEmpty();
-    assertThat(commandErrorOutput.toString())
+    assertThat(commandOutput.toString(UTF_8)).isEmpty();
+    assertThat(commandErrorOutput.toString(UTF_8))
         .contains(
             "Invalid value for option '--Xewp-max-get-node-data': cannot convert '-16' to PositiveNumber");
   }

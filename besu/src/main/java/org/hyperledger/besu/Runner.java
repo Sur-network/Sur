@@ -21,6 +21,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.websocket.WebSocketService;
 import org.hyperledger.besu.ethereum.api.query.cache.AutoTransactionLogBloomCachingService;
 import org.hyperledger.besu.ethereum.api.query.cache.TransactionLogBloomCacher;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
+import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolEvictionService;
 import org.hyperledger.besu.ethereum.p2p.network.NetworkRunner;
 import org.hyperledger.besu.ethereum.stratum.StratumServer;
 import org.hyperledger.besu.ethstats.EthStatsService;
@@ -45,25 +46,27 @@ import java.util.concurrent.TimeoutException;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.vertx.core.Vertx;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Runner implements AutoCloseable {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(Runner.class);
 
   private final Vertx vertx;
   private final CountDownLatch vertxShutdownLatch = new CountDownLatch(1);
   private final CountDownLatch shutdown = new CountDownLatch(1);
 
-  private final NetworkRunner networkRunner;
   private final NatService natService;
-  private final Optional<Path> pidPath;
-  private final Optional<JsonRpcHttpService> jsonRpc;
-  private final Optional<GraphQLHttpService> graphQLHttp;
-  private final Optional<WebSocketService> websocketRpc;
-  private final Optional<MetricsService> metrics;
+  private final NetworkRunner networkRunner;
   private final Optional<EthStatsService> ethStatsService;
+  private final Optional<GraphQLHttpService> graphQLHttp;
+  private final Optional<JsonRpcHttpService> jsonRpc;
+  private final Optional<JsonRpcHttpService> engineJsonRpc;
+  private final Optional<MetricsService> metrics;
+  private final Optional<Path> pidPath;
+  private final Optional<WebSocketService> websocketRpc;
+  private final TransactionPoolEvictionService transactionPoolEvictionService;
 
   private final BesuController besuController;
   private final Path dataDir;
@@ -76,6 +79,7 @@ public class Runner implements AutoCloseable {
       final NetworkRunner networkRunner,
       final NatService natService,
       final Optional<JsonRpcHttpService> jsonRpc,
+      final Optional<JsonRpcHttpService> engineJsonRpc,
       final Optional<GraphQLHttpService> graphQLHttp,
       final Optional<WebSocketService> websocketRpc,
       final Optional<StratumServer> stratumServer,
@@ -92,6 +96,7 @@ public class Runner implements AutoCloseable {
     this.graphQLHttp = graphQLHttp;
     this.pidPath = pidPath;
     this.jsonRpc = jsonRpc;
+    this.engineJsonRpc = engineJsonRpc;
     this.websocketRpc = websocketRpc;
     this.metrics = metrics;
     this.ethStatsService = ethStatsService;
@@ -101,41 +106,47 @@ public class Runner implements AutoCloseable {
     this.autoTransactionLogBloomCachingService =
         transactionLogBloomCacher.map(
             cacher -> new AutoTransactionLogBloomCachingService(blockchain, cacher));
+    this.transactionPoolEvictionService =
+        new TransactionPoolEvictionService(vertx, besuController.getTransactionPool());
   }
 
-  public void start() {
+  public void startExternalServices() {
+    LOG.info("Starting external services ... ");
+    metrics.ifPresent(service -> waitForServiceToStart("metrics", service.start()));
+
+    jsonRpc.ifPresent(service -> waitForServiceToStart("jsonRpc", service.start()));
+    engineJsonRpc.ifPresent(service -> waitForServiceToStart("engineJsonRpc", service.start()));
+    graphQLHttp.ifPresent(service -> waitForServiceToStart("graphQLHttp", service.start()));
+    websocketRpc.ifPresent(service -> waitForServiceToStart("websocketRpc", service.start()));
+    stratumServer.ifPresent(server -> waitForServiceToStart("stratum", server.start()));
+    autoTransactionLogBloomCachingService.ifPresent(AutoTransactionLogBloomCachingService::start);
+    ethStatsService.ifPresent(EthStatsService::start);
+  }
+
+  public void startEthereumMainLoop() {
     try {
       LOG.info("Starting Ethereum main loop ... ");
-      metrics.ifPresent(service -> waitForServiceToStart("metrics", service.start()));
       natService.start();
       networkRunner.start();
       if (networkRunner.getNetwork().isP2pEnabled()) {
         besuController.getSynchronizer().start();
       }
       besuController.getMiningCoordinator().start();
-      stratumServer.ifPresent(server -> waitForServiceToStart("stratum", server.start()));
-      vertx.setPeriodic(
-          TimeUnit.MINUTES.toMillis(1),
-          time ->
-              besuController.getTransactionPool().getPendingTransactions().evictOldTransactions());
-      jsonRpc.ifPresent(service -> waitForServiceToStart("jsonRpc", service.start()));
-      graphQLHttp.ifPresent(service -> waitForServiceToStart("graphQLHttp", service.start()));
-      websocketRpc.ifPresent(service -> waitForServiceToStart("websocketRpc", service.start()));
-      ethStatsService.ifPresent(EthStatsService::start);
+      transactionPoolEvictionService.start();
+
       LOG.info("Ethereum main loop is up.");
       writeBesuPortsToFile();
       writeBesuNetworksToFile();
-      autoTransactionLogBloomCachingService.ifPresent(AutoTransactionLogBloomCachingService::start);
       writePidFile();
-
     } catch (final Exception ex) {
-      LOG.error("Startup failed", ex);
-      throw new IllegalStateException(ex);
+      throw new IllegalStateException("Startup failed", ex);
     }
   }
 
   public void stop() {
+    transactionPoolEvictionService.stop();
     jsonRpc.ifPresent(service -> waitForServiceToStop("jsonRpc", service.stop()));
+    engineJsonRpc.ifPresent(service -> waitForServiceToStop("engineJsonRpc", service.stop()));
     graphQLHttp.ifPresent(service -> waitForServiceToStop("graphQLHttp", service.stop()));
     websocketRpc.ifPresent(service -> waitForServiceToStop("websocketRpc", service.stop()));
     metrics.ifPresent(service -> waitForServiceToStop("metrics", service.stop()));
@@ -205,8 +216,7 @@ public class Runner implements AutoCloseable {
         Thread.currentThread().interrupt();
         throw new IllegalStateException("Interrupted while waiting for service to start", e);
       } catch (final ExecutionException e) {
-        LOG.error("Service " + serviceName + " failed to start", e);
-        throw new IllegalStateException(e);
+        throw new IllegalStateException("Service " + serviceName + " failed to start", e);
       } catch (final TimeoutException e) {
         LOG.warn("Service {} is taking an unusually long time to start", serviceName);
       }
@@ -297,6 +307,10 @@ public class Runner implements AutoCloseable {
 
   public Optional<Integer> getJsonRpcPort() {
     return jsonRpc.map(service -> service.socketAddress().getPort());
+  }
+
+  public Optional<Integer> getEngineJsonRpcPort() {
+    return engineJsonRpc.map(service -> service.socketAddress().getPort());
   }
 
   public Optional<Integer> getGraphQLHttpPort() {

@@ -54,13 +54,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.google.common.annotations.VisibleForTesting;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RlpxAgent {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(RlpxAgent.class);
 
   private final LocalNode localNode;
   private final PeerConnectionEvents connectionEvents;
@@ -76,7 +75,7 @@ public class RlpxAgent {
   // without allowing the counterparty to play nodeId farming games
   private final Bytes nodeIdMask = Bytes.random(SECPPublicKey.BYTE_LENGTH);
 
-  @VisibleForTesting final Map<Bytes, RlpxConnection> connectionsById = new ConcurrentHashMap<>();
+  final Map<Bytes, RlpxConnection> connectionsById = new ConcurrentHashMap<>();
 
   private final AtomicBoolean started = new AtomicBoolean(false);
   private final AtomicBoolean stopped = new AtomicBoolean(false);
@@ -173,17 +172,16 @@ public class RlpxAgent {
     if (!localNode.isReady()) {
       return;
     }
-    final int availablePeerSlots = Math.max(0, maxConnections - getConnectionCount());
     peerStream
+        .takeWhile(peer -> Math.max(0, maxConnections - getConnectionCount()) > 0)
         .filter(peer -> !connectionsById.containsKey(peer.getId()))
         .filter(peer -> peer.getEnodeURL().isListening())
         .filter(peerPermissions::allowNewOutboundConnectionTo)
-        .limit(availablePeerSlots)
         .forEach(this::connect);
   }
 
   public void disconnect(final Bytes peerId, final DisconnectReason reason) {
-    RlpxConnection connection = connectionsById.remove(peerId);
+    final RlpxConnection connection = connectionsById.remove(peerId);
     if (connection != null) {
       connection.disconnect(reason);
     }
@@ -241,7 +239,8 @@ public class RlpxAgent {
     }
 
     // Initiate connection or return existing connection
-    AtomicReference<CompletableFuture<PeerConnection>> connectionFuture = new AtomicReference<>();
+    final AtomicReference<CompletableFuture<PeerConnection>> connectionFuture =
+        new AtomicReference<>();
     connectionsById.compute(
         peer.getId(),
         (id, existingConnection) -> {
@@ -253,7 +252,7 @@ public class RlpxAgent {
             // We're initiating a new connection
             final CompletableFuture<PeerConnection> future = initiateOutboundConnection(peer);
             connectionFuture.set(future);
-            RlpxConnection newConnection = RlpxConnection.outboundConnection(peer, future);
+            final RlpxConnection newConnection = RlpxConnection.outboundConnection(peer, future);
             newConnection.subscribeConnectionEstablished(
                 (conn) -> {
                   this.dispatchConnect(conn.getPeerConnection());
@@ -315,7 +314,7 @@ public class RlpxAgent {
               connection.getPeer(), connection.initiatedRemotely())) {
             LOG.debug(
                 "Disconnecting from peer that is not permitted to maintain ongoing connection: {}",
-                connection);
+                connection.getPeerConnection());
             connection.disconnect(DisconnectReason.REQUESTED);
           }
         });
@@ -574,7 +573,12 @@ public class RlpxAgent {
           LOG.debug("TLS Configuration found using NettyTLSConnectionInitializer");
           connectionInitializer =
               new NettyTLSConnectionInitializer(
-                  nodeKey, config, localNode, connectionEvents, metricsSystem, p2pTLSConfiguration);
+                  nodeKey,
+                  config,
+                  localNode,
+                  connectionEvents,
+                  metricsSystem,
+                  p2pTLSConfiguration.get());
         } else {
           LOG.debug("Using default NettyConnectionInitializer");
           connectionInitializer =

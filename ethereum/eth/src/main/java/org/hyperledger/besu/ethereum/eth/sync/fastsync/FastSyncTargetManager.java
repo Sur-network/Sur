@@ -32,17 +32,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class FastSyncTargetManager extends SyncTargetManager {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(FastSyncTargetManager.class);
 
   private final ProtocolSchedule protocolSchedule;
   private final ProtocolContext protocolContext;
   private final EthContext ethContext;
   private final MetricsSystem metricsSystem;
-  private final BlockHeader pivotBlockHeader;
+  private final FastSyncState fastSyncState;
 
   public FastSyncTargetManager(
       final SynchronizerConfiguration config,
@@ -50,17 +50,18 @@ class FastSyncTargetManager extends SyncTargetManager {
       final ProtocolContext protocolContext,
       final EthContext ethContext,
       final MetricsSystem metricsSystem,
-      final BlockHeader pivotBlockHeader) {
+      final FastSyncState fastSyncState) {
     super(config, protocolSchedule, protocolContext, ethContext, metricsSystem);
     this.protocolSchedule = protocolSchedule;
     this.protocolContext = protocolContext;
     this.ethContext = ethContext;
     this.metricsSystem = metricsSystem;
-    this.pivotBlockHeader = pivotBlockHeader;
+    this.fastSyncState = fastSyncState;
   }
 
   @Override
   protected CompletableFuture<Optional<EthPeer>> selectBestAvailableSyncTarget() {
+    final BlockHeader pivotBlockHeader = fastSyncState.getPivotBlockHeader().get();
     final Optional<EthPeer> maybeBestPeer = ethContext.getEthPeers().bestPeerWithHeightEstimate();
     if (!maybeBestPeer.isPresent()) {
       LOG.info("No sync target, waiting for peers: {}", ethContext.getEthPeers().peerCount());
@@ -79,6 +80,7 @@ class FastSyncTargetManager extends SyncTargetManager {
   }
 
   private CompletableFuture<Optional<EthPeer>> confirmPivotBlockHeader(final EthPeer bestPeer) {
+    final BlockHeader pivotBlockHeader = fastSyncState.getPivotBlockHeader().get();
     final RetryingGetHeaderFromPeerByNumberTask task =
         RetryingGetHeaderFromPeerByNumberTask.forSingleNumber(
             protocolSchedule,
@@ -113,11 +115,13 @@ class FastSyncTargetManager extends SyncTargetManager {
   }
 
   private boolean peerHasDifferentPivotBlock(final List<BlockHeader> result) {
+    final BlockHeader pivotBlockHeader = fastSyncState.getPivotBlockHeader().get();
     return result.size() != 1 || !result.get(0).equals(pivotBlockHeader);
   }
 
   @Override
   public boolean shouldContinueDownloading() {
+    final BlockHeader pivotBlockHeader = fastSyncState.getPivotBlockHeader().get();
     return !protocolContext.getBlockchain().getChainHeadHash().equals(pivotBlockHeader.getHash());
   }
 }

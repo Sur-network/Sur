@@ -14,8 +14,6 @@
  */
 package org.hyperledger.besu.ethereum.mainnet;
 
-import static org.apache.logging.log4j.LogManager.getLogger;
-
 import org.hyperledger.besu.ethereum.chain.PoWObserver;
 import org.hyperledger.besu.util.Subscribers;
 
@@ -25,12 +23,17 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Stopwatch;
-import org.apache.logging.log4j.Logger;
+import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.concurrent.ExpiringMap;
 import org.apache.tuweni.units.bigints.UInt256;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PoWSolver {
 
-  private static final Logger LOG = getLogger();
+  private final int maxOmmerDepth;
+  private static final Logger LOG = LoggerFactory.getLogger(PoWSolver.class);
+  private final long powJobTimeToLive;
 
   public static class PoWSolverJob {
 
@@ -80,30 +83,37 @@ public class PoWSolver {
   private final Subscribers<PoWObserver> ethHashObservers;
   private final EpochCalculator epochCalculator;
   private volatile Optional<PoWSolverJob> currentJob = Optional.empty();
+  private final ExpiringMap<Bytes, PoWSolverJob> currentJobs = new ExpiringMap<>();
 
   public PoWSolver(
       final Iterable<Long> nonceGenerator,
       final PoWHasher poWHasher,
       final Boolean stratumMiningEnabled,
       final Subscribers<PoWObserver> ethHashObservers,
-      final EpochCalculator epochCalculator) {
+      final EpochCalculator epochCalculator,
+      final long powJobTimeToLive,
+      final int maxOmmerDepth) {
     this.nonceGenerator = nonceGenerator;
     this.poWHasher = poWHasher;
     this.stratumMiningEnabled = stratumMiningEnabled;
     this.ethHashObservers = ethHashObservers;
     ethHashObservers.forEach(observer -> observer.setSubmitWorkCallback(this::submitSolution));
     this.epochCalculator = epochCalculator;
+    this.powJobTimeToLive = powJobTimeToLive;
+    this.maxOmmerDepth = maxOmmerDepth;
   }
 
   public PoWSolution solveFor(final PoWSolverJob job)
       throws InterruptedException, ExecutionException {
     currentJob = Optional.of(job);
+    currentJobs.put(
+        job.getInputs().getPrePowHash(), job, System.currentTimeMillis() + powJobTimeToLive);
     if (stratumMiningEnabled) {
       ethHashObservers.forEach(observer -> observer.newJob(job.inputs));
     } else {
       findValidNonce();
     }
-    return currentJob.get().getSolution();
+    return job.getSolution();
   }
 
   private void findValidNonce() {
@@ -149,22 +159,50 @@ public class PoWSolver {
 
   public boolean submitSolution(final PoWSolution solution) {
     final Optional<PoWSolverJob> jobSnapshot = currentJob;
+    PoWSolverJob jobToTestWith = null;
     if (jobSnapshot.isEmpty()) {
       LOG.debug("No current job, rejecting miner work");
       return false;
     }
 
-    final PoWSolverJob job = jobSnapshot.get();
-    final PoWSolverInputs inputs = job.getInputs();
-    if (!inputs.getPrePowHash().equals(solution.getPowHash())) {
-      LOG.debug("Miner's solution does not match current job");
+    PoWSolverJob headJob = jobSnapshot.get();
+    if (headJob.getInputs().getPrePowHash().equals(solution.getPowHash())) {
+      LOG.debug("Head job matches the solution pow hash {}", solution.getPowHash());
+      jobToTestWith = headJob;
+    }
+    if (jobToTestWith == null) {
+      PoWSolverJob ommerCandidate = currentJobs.get(solution.getPowHash());
+      if (ommerCandidate != null) {
+        long distanceToHead =
+            headJob.getInputs().getBlockNumber() - ommerCandidate.getInputs().getBlockNumber();
+        LOG.debug(
+            "Found ommer candidate {} with block number {}, distance to head {}",
+            solution.getPowHash(),
+            ommerCandidate.getInputs().getBlockNumber(),
+            distanceToHead);
+        if (distanceToHead <= maxOmmerDepth) {
+          jobToTestWith = ommerCandidate;
+        } else {
+          LOG.debug("Discarded ommer solution as too far from head {}", distanceToHead);
+        }
+      }
+    }
+    if (jobToTestWith == null) {
+      LOG.debug("No matching job found for hash {}, rejecting solution", solution.getPowHash());
       return false;
     }
+    if (jobToTestWith.isDone()) {
+      LOG.debug("Matching job found for hash {}, but already solved", solution.getPowHash());
+      return false;
+    }
+    final PoWSolverInputs inputs = jobToTestWith.getInputs();
+
     final Optional<PoWSolution> calculatedSolution = testNonce(inputs, solution.getNonce());
 
     if (calculatedSolution.isPresent()) {
       LOG.debug("Accepting a solution from a miner");
-      currentJob.get().solvedWith(calculatedSolution.get());
+      currentJobs.remove(solution.getPowHash());
+      jobToTestWith.solvedWith(calculatedSolution.get());
       return true;
     }
     LOG.debug("Rejecting a solution from a miner");

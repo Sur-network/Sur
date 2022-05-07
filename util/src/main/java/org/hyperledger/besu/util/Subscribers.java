@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import com.google.common.collect.ImmutableSet;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tracks subscribers that should be notified when some event occurred. This class is safe to use
@@ -37,15 +37,15 @@ import org.apache.logging.log4j.Logger;
  * subscribers.unsubscribe(this::onSomeEvent);</code>
  * </pre>
  *
- * <p>Since the two separate <code>this:onSomeEvent</code> are not equal, the subscriber wouldn't be
- * removed. This bug is avoided by assigning each subscriber a unique ID and using that to
+ * <p>Since the two separate <code>this::onSomeEvent</code> are not equal, the subscriber wouldn't
+ * be removed. This bug is avoided by assigning each subscriber a unique ID and using that to
  * unsubscribe.
  *
  * @param <T> the type of subscribers
  */
 public class Subscribers<T> {
   private static final Subscribers<?> NONE = new EmptySubscribers<>();
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(Subscribers.class);
 
   private final AtomicLong subscriberId = new AtomicLong();
   private final Map<Long, T> subscribers = new ConcurrentHashMap<>();
@@ -110,7 +110,7 @@ public class Subscribers<T> {
             subscriber -> {
               try {
                 action.accept(subscriber);
-              } catch (Exception e) {
+              } catch (final Exception e) {
                 if (suppressCallbackExceptions) {
                   LOG.error("Error in callback: ", e);
                 } else {

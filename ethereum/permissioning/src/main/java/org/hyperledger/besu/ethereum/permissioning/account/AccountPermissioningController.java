@@ -14,8 +14,8 @@
  */
 package org.hyperledger.besu.ethereum.permissioning.account;
 
-import org.hyperledger.besu.ethereum.core.Address;
-import org.hyperledger.besu.ethereum.core.Hash;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.permissioning.AccountLocalConfigPermissioningController;
 import org.hyperledger.besu.ethereum.permissioning.GoQuorumQip714Gate;
@@ -24,12 +24,12 @@ import org.hyperledger.besu.ethereum.permissioning.TransactionSmartContractPermi
 import java.util.Optional;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AccountPermissioningController {
 
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(AccountPermissioningController.class);
 
   private final Optional<AccountLocalConfigPermissioningController>
       accountLocalConfigPermissioningController;
@@ -52,7 +52,7 @@ public class AccountPermissioningController {
   public boolean isPermitted(
       final Transaction transaction,
       final boolean includeLocalCheck,
-      final boolean includeOnChainCheck) {
+      final boolean includeOnchainCheck) {
     final boolean checkPermissions =
         goQuorumQip714Gate.map(GoQuorumQip714Gate::shouldCheckPermissions).orElse(true);
     if (!checkPermissions) {
@@ -76,7 +76,7 @@ public class AccountPermissioningController {
               .orElse(true);
     }
 
-    if (includeOnChainCheck) {
+    if (includeOnchainCheck) {
       permittedOnchain =
           transactionSmartContractPermissioningController
               .map(c -> c.isPermitted(transaction))
