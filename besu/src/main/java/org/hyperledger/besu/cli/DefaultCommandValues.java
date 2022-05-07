@@ -56,7 +56,7 @@ public interface DefaultCommandValues {
   String MANDATORY_PORT_FORMAT_HELP = "<PORT>";
   NatMethod DEFAULT_NAT_METHOD = NatMethod.AUTO;
   JwtAlgorithm DEFAULT_JWT_ALGORITHM = JwtAlgorithm.RS256;
-  int FAST_SYNC_MIN_PEER_COUNT = 5;
+  int FAST_SYNC_MIN_PEER_COUNT = 1;
   int DEFAULT_MAX_PEERS = 25;
   int DEFAULT_HTTP_MAX_CONNECTIONS = 80;
   int DEFAULT_WS_MAX_CONNECTIONS = 80;

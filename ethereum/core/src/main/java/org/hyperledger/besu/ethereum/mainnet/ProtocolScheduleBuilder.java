@@ -21,6 +21,10 @@ import org.hyperledger.besu.ethereum.privacy.PrivateTransactionValidator;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.TreeMap;
@@ -97,6 +101,21 @@ public class ProtocolScheduleBuilder {
     final long blockVal = block.getAsLong();
     return Optional.of(
         new BuilderMapEntry(blockVal, builder, protocolSpecAdapters.getModifierForBlock(blockVal)));
+  }
+
+  public MutableProtocolSchedule createProtocolSchedule(
+      final Map<BigInteger, ProtocolSpecBuilder> specBuilderMap) {
+    final Optional<BigInteger> chainId = config.getChainId().or(() -> defaultChainId);
+    final MutableProtocolSchedule protocolSchedule = new MutableProtocolSchedule(chainId);
+    List<BigInteger> steps = new ArrayList<>(specBuilderMap.keySet());
+    Collections.sort(steps);
+    for (BigInteger blockNumber : steps) {
+      addProtocolSpec(
+          protocolSchedule,
+          OptionalLong.of(blockNumber.longValue()),
+          specBuilderMap.get(blockNumber));
+    }
+    return protocolSchedule;
   }
 
   public ProtocolScheduleBuilder(

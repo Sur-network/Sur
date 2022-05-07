@@ -29,7 +29,7 @@ import java.math.BigInteger;
 
 public class MergeProtocolSchedule {
 
-  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(1);
+  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(262); // BigInteger.ONE
 
   public static ProtocolSchedule create(
       final GenesisConfigOptions config, final boolean isRevertReasonEnabled) {

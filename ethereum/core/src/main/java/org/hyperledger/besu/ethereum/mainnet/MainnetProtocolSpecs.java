@@ -60,8 +60,11 @@ import org.hyperledger.besu.plugin.data.TransactionType;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -644,6 +647,54 @@ public abstract class MainnetProtocolSpecs {
       final long gasUsed) {
     return new TransactionReceipt(
         result.isSuccessful() ? 1 : 0, gasUsed, result.getLogs(), result.getRevertReason());
+  }
+
+  public static Map<BigInteger, ProtocolSpecBuilder> surDefinitions(
+      final Optional<BigInteger> chainId,
+      final OptionalInt contractSizeLimit,
+      final OptionalInt configStackSizeLimit,
+      final boolean enableRevertReason,
+      final boolean quorumCompatibilityMode,
+      final EvmConfiguration evmConfiguration) {
+    Map<BigInteger, ProtocolSpecBuilder> blockRewardsStepMap = new HashMap<>();
+    List<Long> blockStarts =
+        Arrays.asList(
+            0L,
+            15768001L,
+            31536001L,
+            47304001L,
+            63072001L,
+            78840001L,
+            94608001L,
+            110376001L,
+            126144001L,
+            141912001L);
+    List<String> blockRewardWeis =
+        Arrays.asList(
+            "1208100000000000000",
+            "1103500000000000000",
+            "998800000000000000",
+            "903700000000000000",
+            "818100000000000000",
+            "742000000000000000",
+            "684900000000000000",
+            "618300000000000000",
+            "561200000000000000",
+            "513600000000000000");
+    for (int i = 0; i < blockStarts.size(); i++) {
+      blockRewardsStepMap.put(
+          BigInteger.valueOf(blockStarts.get(i)),
+          istanbulDefinition(
+                  chainId,
+                  contractSizeLimit,
+                  configStackSizeLimit,
+                  enableRevertReason,
+                  quorumCompatibilityMode,
+                  evmConfiguration)
+              .name("SurDefinition")
+              .blockReward(Wei.of(new BigInteger(blockRewardWeis.get(i)))));
+    }
+    return blockRewardsStepMap;
   }
 
   static TransactionReceipt berlinTransactionReceiptFactory(

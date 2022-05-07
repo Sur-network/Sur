@@ -30,33 +30,56 @@ public class DefaultDiscoveryConfiguration {
       "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.mainnet.ethdisco.net";
   public static final String RINKEBY_DISCOVERY_URL =
       "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.rinkeby.ethdisco.net";
-  public static final String ROPSTEN_DISCOVERY_URL =
-      "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.ropsten.ethdisco.net";
+
   public static final List<EnodeURL> MAINNET_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
-                  // Ethereum Foundation Bootnodes
-                  "enode://d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666@18.138.108.67:30303", // Singapore AWS
-                  "enode://22a8232c3abc76a16ae9d6c3b164f98775fe226f0917b0ca871128a74a8e9630b458460865bab457221f1d448dd9791d24c4e5d88786180ac185df813a68d4de@3.209.45.79:30303", // Virginia AWS
-                  "enode://ca6de62fce278f96aea6ec5a2daadb877e51651247cb96ee310a318def462913b653963c155a0ef6c7d50048bba6e6cea881130857413d9f50a621546b590758@34.255.23.113:30303", // Ireland AWS
-                  "enode://279944d8dcd428dffaa7436f25ca0ca43ae19e7bcf94a8fb7d1641651f92d121e972ac2e8f381414b80cc8e5555811c2ec6e1a99bb009b3f53c4c69923e11bd8@35.158.244.151:30303", // Frankfurt AWS
-                  "enode://8499da03c47d637b20eee24eec3c356c9a2e6148d6fe25ca195c7949ab8ec2c03e3556126b0d7ed644675e78c4318b08691b7b57de10e5f0d40d05b09238fa0a@52.187.207.27:30303", // Australia Azure
-                  "enode://103858bdb88756c71f15e9b5e09b56dc1be52f0a5021d46301dbbfb7e130029cc9d0d6f73f693bc29b665770fff7da4d34f3c6379fe12721b5d7a0bcb5ca1fc1@191.234.162.198:30303", // Brazil Azure
-                  "enode://715171f50508aba88aecd1250af392a45a330af91d7b90701c436b618c86aaa1589c9184561907bebbb56439b8f8787bc01f49a7c77276c58c1b09822d75e8e8@52.231.165.108:30303", // South Korea Azure
-                  "enode://5d6d7cd20d6da4bb83a1d28cadb5d409b64edf314c0335df658c1a54e32c7c4a7ab7823d57c39b6a757556e68ff1df17c748b698544a55cb488b52479a92b60f@104.42.217.25:30303", // West US Azure
-
-                  // Old Ethereum Foundation Bootnodes
-                  "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@52.16.188.185:30303", // IE
-                  "enode://3f1d12044546b76342d59d4a05532c14b85aa669704bfe1f864fe079415aa2c02d743e03218e57a33fb94523adb54032871a6c51b2cc5514cb7c7e35b3ed0a99@13.93.211.84:30303", // US-WEST
-                  "enode://78de8a0916848093c73790ead81d1928bec737d565119932b98c6b100d944b7a95e94f847f689fc723399d2e31129d182f7ef3863f2b4c820abbf3ab2722344d@191.235.84.50:30303", // BR
-                  "enode://158f8aab45f6d19c6cbf4a089c2670541a8da11978a2f90dbf6a502a4a3bab80d288afdbeb7ec0ef6d92de563767f3b1ea9e8e334ca711e9f8e2df5a0385e8e6@13.75.154.138:30303", // AU
-                  "enode://1118980bf48b0a3640bdba04e0fe78b1add18e1cd99bf22d53daac1fd9972ad650df52176e7c7d89d1114cfef2bc23a2959aa54998a46afcf7d91809f0855082@52.74.57.123:30303", // SG
-
-                  // Ethereum Foundation Aleth Bootnodes
-                  "enode://979b7fa28feeb35a4741660a16076f1943202cb72b6af70d327f053e248bab9ba81760f39d0701ef1d8f89cc1fbd2cacba0710a12cd5314d5e0c9021aa3637f9@5.1.83.226:30303" // DE
-                  )
+                  "enode://aaf8bfbbb1b3133719fd99808e39445f52b5ed59fdba1c6f0cad2785741dc9a1ad4515d0a21c608961760d41acd83b5a49278a033fbb8b75f4c7640ce4cbcc70@94.182.179.244:30303",
+                  "enode://7fece3af806c928889c0022ec11a6b3a3747b22c9eaea72caad0800024fd8daf7e0ae987821f66d64522a367cba9c931f3d6957f178a7422200a7088ae2b265b@94.182.154.219:30303",
+                  "enode://6d6ba1b7e3bbebf8b5ebba54d246203aa04fa57ff7ffe5b22e61ed264c5948dedcdfc8d97d038de4a27b6f624ba86c317e446e7cdbe1406c08b5c0a27362a106@5.253.25.38:30303")
               .map(EnodeURLImpl::fromString)
               .collect(toList()));
+
+  //    public static final List<EnodeURL> ETH_MAINNET_BOOTSTRAP_NODES =
+  //            Collections.unmodifiableList(
+  //                    Stream.of(
+  //                            // Ethereum Foundation Bootnodes
+  //
+  // "enode://d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666@18.138.108.67:30303", // Singapore AWS
+  //
+  // "enode://22a8232c3abc76a16ae9d6c3b164f98775fe226f0917b0ca871128a74a8e9630b458460865bab457221f1d448dd9791d24c4e5d88786180ac185df813a68d4de@3.209.45.79:30303", // Virginia AWS
+  //
+  // "enode://ca6de62fce278f96aea6ec5a2daadb877e51651247cb96ee310a318def462913b653963c155a0ef6c7d50048bba6e6cea881130857413d9f50a621546b590758@34.255.23.113:30303", // Ireland AWS
+  //
+  // "enode://279944d8dcd428dffaa7436f25ca0ca43ae19e7bcf94a8fb7d1641651f92d121e972ac2e8f381414b80cc8e5555811c2ec6e1a99bb009b3f53c4c69923e11bd8@35.158.244.151:30303", // Frankfurt AWS
+  //
+  // "enode://8499da03c47d637b20eee24eec3c356c9a2e6148d6fe25ca195c7949ab8ec2c03e3556126b0d7ed644675e78c4318b08691b7b57de10e5f0d40d05b09238fa0a@52.187.207.27:30303", // Australia Azure
+  //
+  // "enode://103858bdb88756c71f15e9b5e09b56dc1be52f0a5021d46301dbbfb7e130029cc9d0d6f73f693bc29b665770fff7da4d34f3c6379fe12721b5d7a0bcb5ca1fc1@191.234.162.198:30303", // Brazil Azure
+  //
+  // "enode://715171f50508aba88aecd1250af392a45a330af91d7b90701c436b618c86aaa1589c9184561907bebbb56439b8f8787bc01f49a7c77276c58c1b09822d75e8e8@52.231.165.108:30303", // South Korea Azure
+  //
+  // "enode://5d6d7cd20d6da4bb83a1d28cadb5d409b64edf314c0335df658c1a54e32c7c4a7ab7823d57c39b6a757556e68ff1df17c748b698544a55cb488b52479a92b60f@104.42.217.25:30303", // West US Azure
+  //
+  //                            // Old Ethereum Foundation Bootnodes
+  //
+  // "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@52.16.188.185:30303", // IE
+  //
+  // "enode://3f1d12044546b76342d59d4a05532c14b85aa669704bfe1f864fe079415aa2c02d743e03218e57a33fb94523adb54032871a6c51b2cc5514cb7c7e35b3ed0a99@13.93.211.84:30303", // US-WEST
+  //
+  // "enode://78de8a0916848093c73790ead81d1928bec737d565119932b98c6b100d944b7a95e94f847f689fc723399d2e31129d182f7ef3863f2b4c820abbf3ab2722344d@191.235.84.50:30303", // BR
+  //
+  // "enode://158f8aab45f6d19c6cbf4a089c2670541a8da11978a2f90dbf6a502a4a3bab80d288afdbeb7ec0ef6d92de563767f3b1ea9e8e334ca711e9f8e2df5a0385e8e6@13.75.154.138:30303", // AU
+  //
+  // "enode://1118980bf48b0a3640bdba04e0fe78b1add18e1cd99bf22d53daac1fd9972ad650df52176e7c7d89d1114cfef2bc23a2959aa54998a46afcf7d91809f0855082@52.74.57.123:30303", // SG
+  //
+  //                            // Ethereum Foundation Aleth Bootnodes
+  //
+  // "enode://979b7fa28feeb35a4741660a16076f1943202cb72b6af70d327f053e248bab9ba81760f39d0701ef1d8f89cc1fbd2cacba0710a12cd5314d5e0c9021aa3637f9@5.1.83.226:30303" // DE
+  //                    )
+  //                            .map(EnodeURLImpl::fromString)
+  //                            .collect(toList()));
+
   public static final List<EnodeURL> RINKEBY_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
@@ -65,6 +88,7 @@ public class DefaultDiscoveryConfiguration {
                   "enode://b6b28890b006743680c52e64e0d16db57f28124885595fa03a562be1d2bf0f3a1da297d56b13da25fb992888fd556d4c1a27b1f39d531bde7de1921c90061cc6@159.89.28.211:30303")
               .map(EnodeURLImpl::fromString)
               .collect(toList()));
+
   public static final List<EnodeURL> ROPSTEN_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
@@ -74,6 +98,7 @@ public class DefaultDiscoveryConfiguration {
                   "enode://865a63255b3bb68023b6bffd5095118fcc13e79dcf014fe4e47e065c350c7cc72af2e53eff895f11ba1bbb6a2b33271c1116ee870f266618eadfc2e78aa7349c@52.176.100.77:30303")
               .map(EnodeURLImpl::fromString)
               .collect(toList()));
+
   public static final List<EnodeURL> GOERLI_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
@@ -98,34 +123,10 @@ public class DefaultDiscoveryConfiguration {
                   "enode://9246d00bc8fd1742e5ad2428b80fc4dc45d786283e05ef6edbd9002cbc335d40998444732fbe921cb88e1d2c73d1b1de53bae6a2237996e9bfe14f871baf7066@18.168.182.86:30303")
               .map(EnodeURLImpl::fromString)
               .collect(toList()));
+
   public static final List<EnodeURL> CLASSIC_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
-                  // ETC Cooperative
-                  "enode://8e73168affd8d445edda09c561d607081ca5d7963317caae2702f701eb6546b06948b7f8687a795de576f6a5f33c44828e25a90aa63de18db380a11e660dd06f@159.203.37.80:30303",
-                  "enode://2b1ef75e8b7119b6e0294f2e51ead2cf1a5400472452c199e9587727ada99e7e2b1199e36adcad6cbae65dce2410559546e4d83d8c93d45a559e723e56444c03@67.207.93.100:30303",
-                  "enode://40b37d729fdc2c29620bbecc61264f450c3e849b5e60d1a362e6af04d84ae36e15120573498bcf56f97aeec18e530113a4d0b55b18e6a6523de8cf5a45e1db23@128.199.160.131:30303",
-                  "enode://84e70a981a436efd7d6ae80b5d7ecb82636de77029635a2fb25ccf5d02106172d1cafdd7d8171a136d3fd545e5df94f4d63299eda7f8aec79967aa568ddaa71e@165.22.202.207:30303",
-                  "enode://6ec7ac618a7147d8b0e41bc1e63080abfd56a48f50f06095c112e30f72cd5eee262b06aa168cb46ab470d56885f842a1ae44a3714bfb029ced83dab461852062@164.90.218.200:30303",
-                  "enode://feba6c4bd757efce4fec0fa5775780d2c209e86231553a72738c2c4e95d0cfd7ac2189f6d30d3c059dd25d93ea060ca28f9936b564f7d04c4270bb60e8e1487b@178.128.171.230:30303",
-                  "enode://c0b698f9fb1c5dd3b348c46dffbc524cebbfa48fd03c52523892d43d31d5fabacf4e27f215f5647c96190567975e423a5708cbdcd6441da2705bd85533e78eca@209.97.136.89:30303",
-                  "enode://37b20dc1ca0ba428dc07f4bf87c548aa57b53e6883c607a041c88cc0f72c27ef3487b0e94f50e787fff8af5e2baf029cd6105461aa8ec250ccae93d6972107a9@134.209.30.110:30303",
-
-                  // ETC Labs
-                  "enode://66498ac935f3f54d873de4719bf2d6d61e0c74dd173b547531325bcef331480f9bedece91099810971c8567eeb1ae9f6954b013c47c6dc51355bbbbae65a8c16@54.148.165.1:30303",
-                  "enode://73e74ce7426a17aa2d8b5bb64d796ec7dc4dcee2af9bbdd4434394d1e4e52e650b9e39202435fca29ce65c242fd6e59b93ed2cf37f04b645fb23e306273816ad@54.148.165.1:30304",
-                  "enode://f1d4bde4cc8df2b8ce46194247450e54b9ba9e69410a30974a894a49273b10c069e7a1ff0ffd4921cb23af9f903d8257ed0133317850e670f2792f20e771a69e@123.57.29.99:30303",
-                  "enode://7a7768a1603b6714acd16f646b84a5aff418869b5715fa606172d19e4e7d719699448b7707e30c7b59470b4fb8b38a020135641304861483a7dc3ba988e98490@47.108.52.30:30303",
-                  "enode://903fceb08534c13fe1114b0c753a89c6c2ec50f973a85d308456c46721f8904b1cd47df9231114299be84e1e954db06552f791a0facbd86359aa9fd321d2ef50@47.240.106.205:30303",
-                  "enode://c7ec057ad9450d2d5c4002e49e53e1d90142acd54128c89e794d11401de026b91aa0e84e3f679fb6b47f7940e08b5e7d21d8178c5fa6ba0f36971098cb566ea6@101.133.229.66:30303",
-                  "enode://70b74fef51aa4f36330cc52ac04f16d38e1838f531f58bbc88365ca5fd4a3da6e8ec32316c43f79b157d0575faf53064fd925644d0f620b2b201b028c2b410d0@47.115.150.90:30303",
-                  "enode://fa64d1fcb2d4cd1d1606cb940ea2b69fee7dc6c7a85ac4ad05154df1e9ae9616a6a0fa67a59cb15f79346408efa5a4efeba1e5993ddbf4b5cedbda27644a61cf@47.91.30.48:30303",
-
-                  // @q9f ceibo
-                  "enode://942bf2f0754972391467765be1d98206926fc8ad0be8a49cd65e1730420c37fa63355bddb0ae5faa1d3505a2edcf8fad1cf00f3c179e244f047ec3a3ba5dacd7@176.9.51.216:30355",
-                  "enode://0b0e09d6756b672ac6a8b70895da4fb25090b939578935d4a897497ffaa205e019e068e1ae24ac10d52fa9b8ddb82840d5d990534201a4ad859ee12cb5c91e82@176.9.51.216:30365",
-
-                  // @whilei
                   "enode://158ac5a4817265d0d8b977660b3dbe9abee5694ed212f7091cbf784ddf47623ed015e1cb54594d10c1c46118747ddabe86ebf569cf24ae91f2daa0f1adaae390@159.203.56.33:30303",
                   "enode://efd48ad0879eeb7f9cb5e50f33f7bc21e805a72e90361f145baaa22dd75d111e7cd9c93f1b7060dcb30aa1b3e620269336dbf32339fea4c18925a4c15fe642df@18.205.66.229:30303",
                   "enode://5fbfb426fbb46f8b8c1bd3dd140f5b511da558cd37d60844b525909ab82e13a25ee722293c829e52cb65c2305b1637fa9a2ea4d6634a224d5f400bfe244ac0de@162.243.55.45:30303",
@@ -138,7 +139,13 @@ public class DefaultDiscoveryConfiguration {
                   "enode://83b33409349ffa25e150555f7b4f8deebc68f3d34d782129dc3c8ba07b880c209310a4191e1725f2f6bef59bce9452d821111eaa786deab08a7e6551fca41f4f@206.189.68.191:30303",
                   "enode://0daae2a30f2c73b0b257746587136efb8e3479496f7ea1e943eeb9a663b72dd04582f699f7010ee02c57fc45d1f09568c20a9050ff937f9139e2973ddd98b87b@159.89.169.103:30303",
                   "enode://50808461dd73b3d70537e4c1e5fafd1132b3a90f998399af9205f8889987d62096d4e853813562dd43e7270a71c9d9d4e4dd73a534fdb22fbac98c389c1a7362@178.128.55.119:30303",
-                  "enode://5cd218959f8263bc3721d7789070806b0adff1a0ed3f95ec886fb469f9362c7507e3b32b256550b9a7964a23a938e8d42d45a0c34b332bfebc54b29081e83b93@35.187.57.94:30303")
+                  "enode://5cd218959f8263bc3721d7789070806b0adff1a0ed3f95ec886fb469f9362c7507e3b32b256550b9a7964a23a938e8d42d45a0c34b332bfebc54b29081e83b93@35.187.57.94:30303",
+                  "enode://66498ac935f3f54d873de4719bf2d6d61e0c74dd173b547531325bcef331480f9bedece91099810971c8567eeb1ae9f6954b013c47c6dc51355bbbbae65a8c16@54.148.165.1:30303",
+                  "enode://73e74ce7426a17aa2d8b5bb64d796ec7dc4dcee2af9bbdd4434394d1e4e52e650b9e39202435fca29ce65c242fd6e59b93ed2cf37f04b645fb23e306273816ad@54.148.165.1:30304",
+                  "enode://8809dadb6e6145bbbce832f8e3cb54f23c84db1c4957dac04be26157a16eceb91bb2567e3a2eb794bf8e7df937fd2de46d4214416d3c199f05d3b6fa76a5ef6d@51.141.115.3:30303",
+                  "enode://942bf2f0754972391467765be1d98206926fc8ad0be8a49cd65e1730420c37fa63355bddb0ae5faa1d3505a2edcf8fad1cf00f3c179e244f047ec3a3ba5dacd7@176.9.51.216:30355", // @q9f Ceibo
+                  "enode://0b0e09d6756b672ac6a8b70895da4fb25090b939578935d4a897497ffaa205e019e068e1ae24ac10d52fa9b8ddb82840d5d990534201a4ad859ee12cb5c91e82@176.9.51.216:30365" // @q9f Ceibo
+                  )
               .map(EnodeURLImpl::fromString)
               .collect(toList()));
   public static final List<EnodeURL> KOTTI_BOOTSTRAP_NODES =

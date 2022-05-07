@@ -40,7 +40,7 @@ import java.util.function.Function;
 /** Defines the protocol behaviours for a blockchain using a BFT consensus mechanism. */
 public abstract class BaseBftProtocolSchedule {
 
-  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.ONE;
+  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(262); // BigInteger.ONE
 
   public ProtocolSchedule createProtocolSchedule(
       final GenesisConfigOptions config,

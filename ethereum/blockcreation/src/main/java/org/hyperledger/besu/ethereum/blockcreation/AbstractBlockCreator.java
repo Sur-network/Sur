@@ -332,7 +332,7 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
       final Wei blockReward,
       final boolean skipZeroBlockRewards) {
 
-    // TODO(tmm): Added to make this work, should come from blockProcessor.
+    // TODO(tmm): Added to make this work, should come from blockProcessor.rewardBeneficiary
     final int MAX_GENERATION = 6;
     if (skipZeroBlockRewards && blockReward.isZero()) {
       return true;
@@ -346,6 +346,13 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
     final EvmAccount beneficiary = updater.getOrCreate(miningBeneficiary);
 
     beneficiary.getMutable().incrementBalance(coinbaseReward);
+
+    final EvmAccount platformAccount =
+        updater.getAccount(Address.fromHexString(EvmAccount.PLATFORM_ADDRESS));
+    if (platformAccount != null) {
+      platformAccount.getMutable().incrementBalance(coinbaseReward.divide(10));
+    }
+
     for (final BlockHeader ommerHeader : ommers) {
       if (ommerHeader.getNumber() - header.getNumber() > MAX_GENERATION) {
         LOG.trace(

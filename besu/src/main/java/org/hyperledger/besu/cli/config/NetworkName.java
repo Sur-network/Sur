@@ -17,7 +17,7 @@ package org.hyperledger.besu.cli.config;
 import java.math.BigInteger;
 
 public enum NetworkName {
-  MAINNET("/mainnet.json", BigInteger.valueOf(1)),
+  MAINNET("/mainnet.json", BigInteger.valueOf(262)),
   RINKEBY("/rinkeby.json", BigInteger.valueOf(4)),
   ROPSTEN("/ropsten.json", BigInteger.valueOf(3)),
   SEPOLIA("/sepolia.json", BigInteger.valueOf(11155111)),
