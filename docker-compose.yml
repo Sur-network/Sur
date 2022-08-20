@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  sur:
+    container_name: sur
+    image: sur:1.1
+    build: .
+    volumes:
+      - /Users/Farhad/Desktop/docker:/opt/sur/externalVolume
