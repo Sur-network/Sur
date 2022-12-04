@@ -345,7 +345,7 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
     final WorldUpdater updater = worldState.updater();
     final EvmAccount beneficiary = updater.getOrCreate(miningBeneficiary);
 
-    beneficiary.getMutable().incrementBalance(coinbaseReward);
+    beneficiary.getMutable().incrementBalance(coinbaseReward.divide(10).multiply(9));
 
     final EvmAccount platformAccount =
         updater.getAccount(Address.fromHexString(EvmAccount.PLATFORM_ADDRESS));

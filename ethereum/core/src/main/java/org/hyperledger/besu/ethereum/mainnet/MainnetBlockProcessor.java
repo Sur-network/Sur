@@ -19,6 +19,7 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.GoQuorumPrivacyParameters;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
+import org.hyperledger.besu.evm.account.EvmAccount;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
@@ -63,7 +64,14 @@ public class MainnetBlockProcessor extends AbstractBlockProcessor {
     final MutableAccount miningBeneficiaryAccount =
         updater.getOrCreate(miningBeneficiary).getMutable();
 
-    miningBeneficiaryAccount.incrementBalance(coinbaseReward);
+    miningBeneficiaryAccount.incrementBalance(coinbaseReward.divide(10).multiply(9));
+
+    final EvmAccount platformAccount =
+            updater.getAccount(Address.fromHexString(EvmAccount.PLATFORM_ADDRESS));
+    if (platformAccount != null) {
+      platformAccount.getMutable().incrementBalance(coinbaseReward.divide(10));
+    }
+
     for (final BlockHeader ommerHeader : ommers) {
       if (ommerHeader.getNumber() - header.getNumber() > MAX_GENERATION) {
         LOG.info(
