@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.consensus.ibftlegacy;
 
-import static org.hyperledger.besu.consensus.ibftlegacy.IbftBlockHeaderValidationRulesetFactory.ibftBlockHeaderValidator;
+import java.math.BigInteger;
 
 import org.hyperledger.besu.config.BftConfigOptions;
 import org.hyperledger.besu.config.GenesisConfigOptions;
@@ -30,96 +30,40 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecAdapters;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecBuilder;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 
-import java.math.BigInteger;
-import java.util.Optional;
+import static org.hyperledger.besu.consensus.ibftlegacy.IbftBlockHeaderValidationRulesetFactory.ibftBlockHeaderValidator;
 
-/** Defines the protocol behaviours for a blockchain using IBFT. */
+/**
+ * Defines the protocol behaviours for a blockchain using IBFT.
+ */
 public class IbftProtocolSchedule {
+    private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(262); // BigInteger.ONE;
 
-  private static final BigInteger DEFAULT_CHAIN_ID = BigInteger.valueOf(262); // BigInteger.ONE;
+    public static ProtocolSchedule create(final GenesisConfigOptions config, final PrivacyParameters privacyParameters,
+        final boolean isRevertReasonEnabled, final EvmConfiguration evmConfiguration) {
 
-  public static ProtocolSchedule create(
-      final GenesisConfigOptions config,
-      final PrivacyParameters privacyParameters,
-      final boolean isRevertReasonEnabled,
-      final EvmConfiguration evmConfiguration) {
+        BftConfigOptions ibftConfig = config.getBftConfigOptions();
+        IbftLegacyConfigOptions ibftLagacyConfig = config.getIbftLegacyConfigOptions();
+        final long blockPeriod = ibftConfig.getBlockPeriodSeconds();
 
-    Optional<BigInteger> chainId = config.getChainId();
-    BftConfigOptions ibftConfig = config.getBftConfigOptions();
-    IbftLegacyConfigOptions ibftLagacyConfig = config.getIbftLegacyConfigOptions();
-    final long blockPeriod = ibftConfig.getBlockPeriodSeconds();
+        return new ProtocolScheduleBuilder(config, DEFAULT_CHAIN_ID, ProtocolSpecAdapters.create(0,
+            builder -> applyIbftChanges(blockPeriod, builder, config.isQuorum(), ibftLagacyConfig.getCeil2Nby3Block())),
+            privacyParameters, isRevertReasonEnabled, config.isQuorum(), evmConfiguration).createProtocolSchedule();
 
-    if (chainId.isPresent()
-        && chainId.get().equals(DEFAULT_CHAIN_ID)
-        && ibftConfig.getBlockRewardWei().signum() < 0) {
-
-      return new ProtocolScheduleBuilder(
-              config,
-              DEFAULT_CHAIN_ID,
-              ProtocolSpecAdapters.create(
-                  0,
-                  builder ->
-                      applyIbftChanges(
-                          blockPeriod,
-                          builder,
-                          config.isQuorum(),
-                          ibftLagacyConfig.getCeil2Nby3Block())),
-              privacyParameters,
-              isRevertReasonEnabled,
-              config.isQuorum(),
-              evmConfiguration)
-          .createProtocolSchedule(
-              MainnetProtocolSpecs.surDefinitions(
-                  chainId,
-                  config.getContractSizeLimit(),
-                  config.getEvmStackSize(),
-                  isRevertReasonEnabled,
-                  config.isQuorum(),
-                  evmConfiguration));
-
-    } else {
-      return new ProtocolScheduleBuilder(
-              config,
-              DEFAULT_CHAIN_ID,
-              ProtocolSpecAdapters.create(
-                  0,
-                  builder ->
-                      applyIbftChanges(
-                          blockPeriod,
-                          builder,
-                          config.isQuorum(),
-                          ibftLagacyConfig.getCeil2Nby3Block())),
-              privacyParameters,
-              isRevertReasonEnabled,
-              config.isQuorum(),
-              evmConfiguration)
-          .createProtocolSchedule();
     }
-  }
 
-  public static ProtocolSchedule create(
-      final GenesisConfigOptions config,
-      final boolean isRevertReasonEnabled,
-      final EvmConfiguration evmConfiguration) {
-    return create(config, PrivacyParameters.DEFAULT, isRevertReasonEnabled, evmConfiguration);
-  }
+    public static ProtocolSchedule create(final GenesisConfigOptions config, final boolean isRevertReasonEnabled,
+        final EvmConfiguration evmConfiguration) {
+        return create(config, PrivacyParameters.DEFAULT, isRevertReasonEnabled, evmConfiguration);
+    }
 
-  private static ProtocolSpecBuilder applyIbftChanges(
-      final long secondsBetweenBlocks,
-      final ProtocolSpecBuilder builder,
-      final boolean goQuorumMode,
-      final long ceil2nBy3Block) {
-    return builder
-        .blockHeaderValidatorBuilder(
-            feeMarket -> ibftBlockHeaderValidator(secondsBetweenBlocks, ceil2nBy3Block))
-        .ommerHeaderValidatorBuilder(
-            feeMarket -> ibftBlockHeaderValidator(secondsBetweenBlocks, ceil2nBy3Block))
-        .blockBodyValidatorBuilder(MainnetBlockBodyValidator::new)
-        .blockValidatorBuilder(MainnetProtocolSpecs.blockValidatorBuilder(goQuorumMode))
-        .blockImporterBuilder(MainnetBlockImporter::new)
-        .difficultyCalculator((time, parent, protocolContext) -> BigInteger.ONE)
-        .blockReward(Wei.ZERO)
-        .skipZeroBlockRewards(true)
-        .blockHeaderFunctions(new LegacyIbftBlockHeaderFunctions());
-  }
+    private static ProtocolSpecBuilder applyIbftChanges(final long secondsBetweenBlocks,
+        final ProtocolSpecBuilder builder, final boolean goQuorumMode, final long ceil2nBy3Block) {
+        return builder.blockHeaderValidatorBuilder(
+                feeMarket -> ibftBlockHeaderValidator(secondsBetweenBlocks, ceil2nBy3Block)).ommerHeaderValidatorBuilder(
+                feeMarket -> ibftBlockHeaderValidator(secondsBetweenBlocks, ceil2nBy3Block)).blockBodyValidatorBuilder(
+                MainnetBlockBodyValidator::new).blockValidatorBuilder(
+                MainnetProtocolSpecs.blockValidatorBuilder(goQuorumMode)).blockImporterBuilder(MainnetBlockImporter::new)
+            .difficultyCalculator((time, parent, protocolContext) -> BigInteger.ONE).blockReward(Wei.ZERO)
+            .skipZeroBlockRewards(true).blockHeaderFunctions(new LegacyIbftBlockHeaderFunctions());
+    }
 }
