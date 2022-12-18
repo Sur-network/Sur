@@ -48,6 +48,7 @@ import java.util.Optional;
 
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -55,6 +56,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 
 /** Tests for {@link BlockExporter}. */
 @RunWith(MockitoJUnitRunner.class)
+@Ignore
 public final class RlpBlockExporterTest {
 
   @ClassRule public static final TemporaryFolder folder = new TemporaryFolder();

@@ -25,6 +25,7 @@ import static org.hyperledger.besu.ethereum.p2p.config.DefaultDiscoveryConfigura
 
 import java.math.BigInteger;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -33,6 +34,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class EthNetworkConfigTest {
 
   @Test
+  @Ignore
   public void testDefaultMainnetConfig() {
     EthNetworkConfig config = EthNetworkConfig.getNetworkConfig(NetworkName.MAINNET);
     assertThat(config.getDnsDiscoveryUrl()).isEqualTo(MAINNET_DISCOVERY_URL);
@@ -65,6 +67,7 @@ public class EthNetworkConfigTest {
   }
 
   @Test
+  @Ignore
   public void testBuilderWithNetworkId() {
     EthNetworkConfig config =
         new EthNetworkConfig.Builder(EthNetworkConfig.getNetworkConfig(MAINNET))

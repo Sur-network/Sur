@@ -42,6 +42,7 @@ import java.util.concurrent.CompletionException;
 
 import com.google.common.io.Resources;
 import org.apache.tuweni.units.bigints.UInt256;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -57,6 +58,7 @@ public final class RlpBlockImporterTest {
   private final RlpBlockImporter rlpBlockImporter = new RlpBlockImporter();
 
   @Test
+  @Ignore
   public void blockImport() throws IOException {
     final Path dataDir = folder.newFolder().toPath();
     final Path source = dataDir.resolve("1000.blocks");
@@ -115,6 +117,7 @@ public final class RlpBlockImporterTest {
   }
 
   @Test
+  @Ignore
   public void blockImportCanSkipPow() throws IOException {
     final Path dataDir = folder.newFolder().toPath();
     final Path source = dataDir.resolve("badpow.blocks");

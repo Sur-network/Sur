@@ -75,6 +75,7 @@ import com.google.common.base.Suppliers;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -210,6 +211,7 @@ public class PrivacyReorgTest {
   }
 
   @Test
+  @Ignore
   public void privacyGroupHeadIsTracked() {
     // Setup an initial blockchain with one private transaction
     final ProtocolContext protocolContext = besuController.getProtocolContext();
@@ -250,6 +252,7 @@ public class PrivacyReorgTest {
   }
 
   @Test
+  @Ignore
   public void reorgToChainAtEqualHeight() {
     // Setup an initial blockchain with one private transaction
     final ProtocolContext protocolContext = besuController.getProtocolContext();
@@ -283,6 +286,7 @@ public class PrivacyReorgTest {
   }
 
   @Test
+  @Ignore
   public void reorgToShorterChain() {
     // Setup an initial blockchain with one private transaction
     final ProtocolContext protocolContext = besuController.getProtocolContext();
@@ -336,6 +340,7 @@ public class PrivacyReorgTest {
   }
 
   @Test
+  @Ignore
   public void reorgToLongerChain() {
     // Setup an initial blockchain with one private transaction
     final ProtocolContext protocolContext = besuController.getProtocolContext();
