@@ -14,6 +14,20 @@
  */
 package org.hyperledger.besu.ethereum.mainnet;
 
+import java.io.IOException;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Resources;
+import io.vertx.core.json.JsonArray;
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.config.PowAlgorithm;
 import org.hyperledger.besu.datatypes.Address;
@@ -56,24 +70,6 @@ import org.hyperledger.besu.evm.processor.MessageCallProcessor;
 import org.hyperledger.besu.evm.worldstate.WorldState;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.TransactionType;
-
-import java.io.IOException;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Resources;
-import io.vertx.core.json.JsonArray;
 
 /** Provides the various {@link ProtocolSpec}s on mainnet hard forks. */
 public abstract class MainnetProtocolSpecs {
@@ -649,73 +645,7 @@ public abstract class MainnetProtocolSpecs {
         result.isSuccessful() ? 1 : 0, gasUsed, result.getLogs(), result.getRevertReason());
   }
 
-  public static Map<BigInteger, ProtocolSpecBuilder> surDefinitions(
-      final Optional<BigInteger> chainId,
-      final OptionalInt contractSizeLimit,
-      final OptionalInt configStackSizeLimit,
-      final boolean enableRevertReason,
-      final boolean quorumCompatibilityMode,
-      final EvmConfiguration evmConfiguration) {
-    Map<BigInteger, ProtocolSpecBuilder> blockRewardsStepMap = new HashMap<>();
-    List<Long> blockStarts =
-        Arrays.asList(
-            0L,
-            15000001L,
-            30000001L,
-            45000001L,
-            60000001L,
-            75000001L,
-            90000001L,
-            105000001L,
-            120000001L,
-            135000001L,
-            150000001L,
-            165000001L,
-            180000001L,
-            195000001L,
-            210000001L,
-            225000001L,
-            240000001L,
-            255000001L,
-            270000001L,
-            285000001L,
-            300000001L);
-    List<String> blockRewardWeis =
-        Arrays.asList(
-            "920000000000000000",
-            "960000000000000000",
-            "1200000000000000000",
-            "1270000000000000000",
-            "1230000000000000000",
-            "1120000000000000000",
-            "950000000000000000",
-            "800000000000000000",
-            "680000000000000000",
-            "580000000000000000",
-            "480000000000000000",
-            "390000000000000000",
-            "310000000000000000",
-            "240000000000000000",
-            "180000000000000000",
-            "130000000000000000",
-            "90000000000000000",
-            "70000000000000000",
-            "0");
-    for (int i = 0; i < blockStarts.size(); i++) {
-      blockRewardsStepMap.put(
-          BigInteger.valueOf(blockStarts.get(i)),
-          istanbulDefinition(
-                  chainId,
-                  contractSizeLimit,
-                  configStackSizeLimit,
-                  enableRevertReason,
-                  quorumCompatibilityMode,
-                  evmConfiguration)
-              .name("SurDefinition")
-              .blockReward(Wei.of(new BigInteger(blockRewardWeis.get(i)))));
-    }
-    return blockRewardsStepMap;
-  }
+
 
   static TransactionReceipt berlinTransactionReceiptFactory(
       final TransactionType transactionType,

@@ -30,67 +30,54 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class MainnetBlockProcessor extends AbstractBlockProcessor {
+    private static final Logger LOG = LoggerFactory.getLogger(MainnetBlockProcessor.class);
 
-  private static final Logger LOG = LoggerFactory.getLogger(MainnetBlockProcessor.class);
-
-  public MainnetBlockProcessor(
-      final MainnetTransactionProcessor transactionProcessor,
-      final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory,
-      final Wei blockReward,
-      final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
-      final boolean skipZeroBlockRewards,
-      final Optional<GoQuorumPrivacyParameters> goQuorumPrivacyParameters) {
-    super(
-        transactionProcessor,
-        transactionReceiptFactory,
-        blockReward,
-        miningBeneficiaryCalculator,
-        skipZeroBlockRewards);
-  }
-
-  @Override
-  protected boolean rewardCoinbase(
-      final MutableWorldState worldState,
-      final BlockHeader header,
-      final List<BlockHeader> ommers,
-      final boolean skipZeroBlockRewards) {
-    if (skipZeroBlockRewards && blockReward.isZero()) {
-      return true;
+    public MainnetBlockProcessor(final MainnetTransactionProcessor transactionProcessor,
+        final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory, final Wei blockReward,
+        final MiningBeneficiaryCalculator miningBeneficiaryCalculator, final boolean skipZeroBlockRewards,
+        final Optional<GoQuorumPrivacyParameters> goQuorumPrivacyParameters) {
+        super(transactionProcessor, transactionReceiptFactory, blockReward, miningBeneficiaryCalculator,
+            skipZeroBlockRewards);
     }
 
-    final Wei coinbaseReward = getCoinbaseReward(blockReward, header.getNumber(), ommers.size());
-    final WorldUpdater updater = worldState.updater();
-    final Address miningBeneficiary = getMiningBeneficiaryCalculator().calculateBeneficiary(header);
-    final MutableAccount miningBeneficiaryAccount =
-        updater.getOrCreate(miningBeneficiary).getMutable();
+    @Override
+    protected boolean rewardCoinbase(final MutableWorldState worldState, final BlockHeader header,
+        final List<BlockHeader> ommers, final boolean skipZeroBlockRewards) {
+        if (skipZeroBlockRewards && blockReward.isZero()) {
+            return true;
+        }
 
-    miningBeneficiaryAccount.incrementBalance(coinbaseReward.divide(10).multiply(9));
+        final Wei coinbaseReward = getCoinbaseReward(blockReward, header.getNumber(), ommers.size());
+        final WorldUpdater updater = worldState.updater();
+        final Address miningBeneficiary = getMiningBeneficiaryCalculator().calculateBeneficiary(header);
+        final MutableAccount miningBeneficiaryAccount = updater.getOrCreate(miningBeneficiary).getMutable();
+        final Wei beneficiaryReward = coinbaseReward.divide(10).multiply(9);
+        final Wei platformReward = coinbaseReward.divide(10);
 
-    final EvmAccount platformAccount =
-            updater.getAccount(Address.fromHexString(EvmAccount.PLATFORM_ADDRESS));
-    if (platformAccount != null) {
-      platformAccount.getMutable().incrementBalance(coinbaseReward.divide(10));
+        miningBeneficiaryAccount.incrementBalance(beneficiaryReward);
+
+        final EvmAccount platformAccount = updater.getAccount(Address.fromHexString(EvmAccount.PLATFORM_ADDRESS));
+        if (platformAccount != null) {
+            platformAccount.getMutable().incrementBalance(platformReward);
+        }
+
+        LOG.info("Total Rewards {} on block {} splits to beneficiary {} and platform {} ", coinbaseReward,
+            header.getNumber(), beneficiaryReward, platformReward);
+
+        for (final BlockHeader ommerHeader : ommers) {
+            if (ommerHeader.getNumber() - header.getNumber() > MAX_GENERATION) {
+                LOG.info("Block processing error: ommer block number {} more than {} generations. Block {}",
+                    ommerHeader.getNumber(), MAX_GENERATION, header.getHash().toHexString());
+                return false;
+            }
+
+            final MutableAccount ommerCoinbase = updater.getOrCreate(ommerHeader.getCoinbase()).getMutable();
+            final Wei ommerReward = getOmmerReward(blockReward, header.getNumber(), ommerHeader.getNumber());
+            ommerCoinbase.incrementBalance(ommerReward);
+        }
+
+        updater.commit();
+
+        return true;
     }
-
-    for (final BlockHeader ommerHeader : ommers) {
-      if (ommerHeader.getNumber() - header.getNumber() > MAX_GENERATION) {
-        LOG.info(
-            "Block processing error: ommer block number {} more than {} generations. Block {}",
-            ommerHeader.getNumber(),
-            MAX_GENERATION,
-            header.getHash().toHexString());
-        return false;
-      }
-
-      final MutableAccount ommerCoinbase =
-          updater.getOrCreate(ommerHeader.getCoinbase()).getMutable();
-      final Wei ommerReward =
-          getOmmerReward(blockReward, header.getNumber(), ommerHeader.getNumber());
-      ommerCoinbase.incrementBalance(ommerReward);
-    }
-
-    updater.commit();
-
-    return true;
-  }
 }

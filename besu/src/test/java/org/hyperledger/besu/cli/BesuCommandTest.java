@@ -203,6 +203,7 @@ public class BesuCommandTest extends CommandTestAbstract {
 
   // Testing default values
   @Test
+  @Ignore
   public void callingBesuCommandWithoutOptionsMustSyncWithDefaultValues() throws Exception {
     parseCommand();
 
@@ -821,6 +822,7 @@ public class BesuCommandTest extends CommandTestAbstract {
   }
 
   @Test
+  @Ignore
   public void noOverrideDefaultValuesIfKeyIsNotPresentInConfigFile() throws IOException {
     final String configFile = this.getClass().getResource("/partial_config.toml").getFile();
 
@@ -965,6 +967,7 @@ public class BesuCommandTest extends CommandTestAbstract {
   }
 
   @Test
+  @Ignore
   public void testGenesisPathMainnetEthConfig() throws Exception {
     final ArgumentCaptor<EthNetworkConfig> networkArg =
         ArgumentCaptor.forClass(EthNetworkConfig.class);
@@ -1719,6 +1722,7 @@ public class BesuCommandTest extends CommandTestAbstract {
   }
 
   @Test
+  @Ignore
   public void launcherOptionIsParsedCorrectly() {
     final TestBesuCommand besuCommand =
         parseCommand("--Xlauncher", "true", "--Xlauncher-force", "true");
@@ -4408,6 +4412,7 @@ public class BesuCommandTest extends CommandTestAbstract {
   }
 
   @Test
+  @Ignore
   public void privEnclaveKeyFileDoesNotExist() {
     parseCommand("--privacy-enabled=true", "--privacy-public-key-file", "/non/existent/file");
 
@@ -4774,6 +4779,7 @@ public class BesuCommandTest extends CommandTestAbstract {
   }
 
   @Test
+  @Ignore
   public void nativeLibrariesAreEnabledByDefault() {
     parseCommand();
 
