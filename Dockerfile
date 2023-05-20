@@ -40,7 +40,7 @@ ENV OTEL_RESOURCE_ATTRIBUTES="service.name=sur,service.version=$VERSION"
 ENV OLDPATH="${PATH}"
 ENV PATH="/opt/sur/bin:${OLDPATH}"
 
-ENTRYPOINT ["bin/besu"]
+ENTRYPOINT ["bin/besu", "--Xdns-enabled=true", "--Xdns-update-enabled=true"]
 HEALTHCHECK --start-period=5s --interval=5s --timeout=1s --retries=10 CMD bash -c "[ -f /tmp/pid ]"
 
 # Build-time metadata as defined at http://label-schema.org
