@@ -6,7 +6,7 @@
       "blockperiodseconds": 2,
       "epochlength": 30000,
       "requesttimeoutseconds": 10,
-      "blockreward": "920000000000000000"
+      "blockreward": "300000000000000000"
     },
     "transitions": {
       "ibft2": [
@@ -15,126 +15,126 @@
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "960000000000000000"
+          "blockreward": "400000000000000000"
         },
         {
           "block": 30000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "1200000000000000000"
+          "blockreward": "620000000000000000"
         },
         {
           "block": 45000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "1270000000000000000"
+          "blockreward": "960000000000000000"
         },
         {
           "block": 60000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "1230000000000000000"
+          "blockreward": "1200000000000000000"
         },
         {
           "block": 75000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "1120000000000000000"
+          "blockreward": "1270000000000000000"
         },
         {
           "block": 90000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "950000000000000000"
+          "blockreward": "1230000000000000000"
         },
         {
           "block": 105000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "800000000000000000"
+          "blockreward": "1120000000000000000"
         },
         {
           "block": 120000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "680000000000000000"
+          "blockreward": "950000000000000000"
         },
         {
           "block": 135000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "580000000000000000"
+          "blockreward": "800000000000000000"
         },
         {
           "block": 150000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "480000000000000000"
+          "blockreward": "680000000000000000"
         },
         {
           "block": 165000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "390000000000000000"
+          "blockreward": "580000000000000000"
         },
         {
           "block": 180000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "310000000000000000"
+          "blockreward": "480000000000000000"
         },
         {
           "block": 195000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "240000000000000000"
+          "blockreward": "390000000000000000"
         },
         {
           "block": 210000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "180000000000000000"
+          "blockreward": "310000000000000000"
         },
         {
           "block": 225000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "130000000000000000"
+          "blockreward": "240000000000000000"
         },
         {
           "block": 240000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "90000000000000000"
+          "blockreward": "180000000000000000"
         },
         {
           "block": 255000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "70000000000000000"
+          "blockreward": "130000000000000000"
         },
         {
           "block": 270000001,
           "blockperiodseconds": 2,
           "epochlength": 30000,
           "requesttimeoutseconds": 10,
-          "blockreward": "70000000000000000"
+          "blockreward": "90000000000000000"
         },
         {
           "block": 285000001,
@@ -155,7 +155,7 @@
   },
   "nonce": "0x0",
   "timestamp": "0x0",
-  "extraData": "0xf83ea00000000000000000000000000000000000000000000000000000000000000000d5947225320316d2e5f14a6397ba6c7ffe2837804fba808400000000c0",
+  "extraData": "0xf83ea00000000000000000000000000000000000000000000000000000000000000000d5944dd1f47d983067d4e6af527f1909b9c246f79034808400000000c0",
   "gasLimit": "0xa00000",
   "difficulty": "0x1",
   "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
